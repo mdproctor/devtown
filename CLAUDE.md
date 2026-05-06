@@ -63,13 +63,13 @@ The protocol asks: Does this already exist elsewhere? Is this the right repo for
 https://raw.githubusercontent.com/casehubio/parent/main/docs/PLATFORM.md
 ```
 
-**Other repo deep-dives** (fetch the relevant ones when your implementation touches their domain):
+**Foundation repo deep-dives** (fetch the relevant ones when your implementation touches their domain):
+- casehub-engine: `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/casehub-engine.md`
 - casehub-ledger: `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/casehub-ledger.md`
 - casehub-work: `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/casehub-work.md`
 - casehub-qhorus: `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/casehub-qhorus.md`
-- casehub-engine: `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/casehub-engine.md`
-- claudony: `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/claudony.md`
 - casehub-connectors: `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/casehub-connectors.md`
+- claudony: `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/claudony.md`
 
 ---
 
@@ -83,36 +83,166 @@ type: java
 
 ## What This Project Is
 
-`casehub-devtown` is the AI-assisted software development **application layer** built on the CaseHub platform foundation. It is deliberately NOT part of the foundation — the foundation (casehub-engine, casehub-qhorus, casehub-ledger, casehub-work) has no domain knowledge. This repo provides the software engineering domain logic on top of those primitives.
+`casehub-devtown` is the **AI-assisted software development application** built on the CaseHub platform foundation. It is the CaseHub answer to Gastown — a production software engineering coordination system — but built on a domain-agnostic foundation rather than baked into infrastructure.
 
-**This repo owns:**
-- Capability tag definitions for the software development domain (security-review, architecture-review, style-review, test-coverage)
-- Trust dimension definitions relevant to code review (review-thoroughness, false-positive-rate)
-- Routing thresholds per capability — which trust score qualifies an agent for which type of work
-- `TrustWeightedSelectionStrategy` — WorkerSelectionStrategy that routes code review tasks by capability-scoped trust
-- Post-merge trust feedback — when a production incident traces back to a missed review, write FLAGGED attestation
-- Merge queue orchestration (`casehub-refinery` — Bors-style batch-then-bisect as a CasePlanModel)
-- Human code review WorkItem lifecycle (SLA, delegation, form schemas for review findings)
+The foundation (casehub-engine, casehub-qhorus, casehub-ledger, casehub-work, casehub-connectors) has **no domain knowledge**. It knows about cases, bindings, workers, commitments, trust, and audit. devtown provides the software engineering domain logic on top of those primitives: what a PR review is, what a merge queue does, what capabilities are required for what work, how trust accumulates from review outcomes.
 
-**This repo does NOT own:**
-- The trust model itself (casehub-ledger)
-- The commitment lifecycle (casehub-qhorus)
-- The case engine or blackboard (casehub-engine)
-- The WorkItem inbox (casehub-work)
-- Notification delivery (casehub-connectors)
-- Any foundation primitive — if you find yourself implementing something that would be useful to any domain, it belongs in the foundation, not here
+**This is the reference application for the CaseHub platform.** It demonstrates and validates the layered architecture for all future domain applications (healthcare, legal, financial compliance, etc.).
+
+### Why devtown, not just Gastown?
+
+The detailed architectural comparison lives in `docs/gastown-casehub-analysis-v2.md`. Short version:
+
+- Gastown is a production system for the same domain — study it for what it does, not how it does it
+- Gastown's merge queue, agent model, and git integration are domain logic baked into infrastructure — they cannot be separated or reused for other domains
+- devtown uses CaseHub primitives to provide the same capabilities with: formal obligation tracking, cryptographic audit, trust-weighted routing, GDPR compliance, and adaptive case management that Gastown cannot provide structurally
+- The ACM/blackboard paradigm advantages over Gastown's workflow model are documented in `docs/orchestration-advantages.md`
 
 ---
 
 ## Layering Rule
 
-This is an application, not a framework. When in doubt: if the capability requires knowledge of software engineering concepts (PRs, commits, CI, code review, merge queues), it belongs here. If it's purely about actors, trust, commitments, or audit records, it belongs in the foundation.
+**This is an application, not a framework.** When in doubt: if the capability requires knowledge of software engineering concepts (PRs, commits, CI, code review, merge queues, GitHub), it belongs here. If it is purely about actors, trust, commitments, cases, or audit records, it belongs in the foundation.
+
+Never add to the foundation what is specific to this domain. Never re-implement foundation primitives here.
+
+---
+
+## Reference Documents
+
+These live in `docs/` in this repo and should be read before any significant implementation:
+
+| Document | What it covers |
+|----------|---------------|
+| `docs/gastown-casehub-analysis-v2.md` | Full architectural comparison — foundation vs foundation, application vs application, roadmap, 32-finding coherence audit, phase gates |
+| `docs/gastown-casehub-analysis.md` | Earlier version — useful for background and alternative framing |
+| `docs/orchestration-advantages.md` | Seven concrete ACM advantages over workflow engines for PR review scenarios — with YAML examples |
+
+---
+
+## What devtown Must Build
+
+### The Domain Model
+
+**Capability tags** — what types of work exist in software development:
+
+| Tag | Description |
+|-----|-------------|
+| `code-analysis` | Initial code characterisation — what's in the PR (security surface, complexity, scope) |
+| `security-review` | Cryptographic, authentication, injection vulnerability review |
+| `architecture-review` | Design decisions, API contracts, cross-repo impact |
+| `style-review` | Coding standards, naming, readability |
+| `test-coverage` | Coverage analysis, missing test identification |
+| `performance-analysis` | Algorithmic complexity, query patterns, memory allocation |
+| `ci-runner` | Build and test execution |
+| `merge-executor` | Merge operation after all gates pass |
+| `human-approval-gate` | Human reviewer WorkItem |
+| `notify` | Failure/escalation notification delivery |
+| `batch-bisect` | Merge queue bisect when batch tip fails |
+| `coordinated-merge` | Cross-repo atomic merge coordination |
+| `coordinated-rollback` | Cross-repo rollback on sub-case fault |
+
+**Trust dimensions** — how trust is scoped for this domain:
+
+| Dimension | Measures |
+|-----------|---------|
+| `review-thoroughness` | Does the agent find issues that later cause incidents? |
+| `false-positive-rate` | Does the agent flag issues that turn out to be non-issues? |
+| `security-specialist` | Track record on security-sensitive reviews specifically |
+| `scope-awareness` | Does the agent correctly identify when it should DECLINE vs attempt? |
+
+**Routing thresholds** — minimum trust score per capability:
+
+| Capability | Minimum trust | Rationale |
+|-----------|--------------|-----------|
+| `security-review` | 0.70 | Security mistakes reach production |
+| `architecture-review` | 0.65 | Design mistakes are expensive to reverse |
+| `style-review` | 0.50 | Baseline — any competent agent |
+| `merge-executor` | 0.80 | Merge is irreversible |
+
+### The CasePlanModels
+
+**PR Review Case** — declared goals, not a sequence of steps:
+- Goal: `pr-approved` — sufficient APPROVED reviews accumulated
+- Goal: `security-verified` — no critical security findings, or specialist approved
+- Goal: `ci-passing` — CI green
+- Bindings fire based on what code analysis finds, not what the author declared
+
+**Merge Queue Case (casehub-refinery)** — batch-then-bisect:
+- Batch of PRs enters as a case
+- Tip-of-batch tested first
+- If tip passes: merge batch
+- If tip fails: spawn bisect sub-case, identify faulty PR, reject it, retry remainder
+- Each batch member is a sub-case with its own PR review case
+
+**Cross-Repo Coordinated Change** — parent + per-repo sub-cases:
+- Parent case tracks all sub-cases
+- Sub-case fault triggers automatic rollback binding
+- Every coordination decision is in the EventLog
+
+### Foundation Gates (what must be working before each capability)
+
+| Capability | Foundation prerequisite |
+|-----------|------------------------|
+| Content-driven routing | P0 complete (engine#186 merged) |
+| Parallel check execution | P0 complete |
+| Trust-weighted assignment | P1 complete (P1.3 — TrustWeightedSelectionStrategy wired) |
+| Human review WorkItem | P0 complete, casehub-work-adapter HITL wiring |
+| Merge queue (full) | P1 complete |
+| Cryptographic audit | P1.4 ✅ DONE (CaseLedgerEntry merged 2026-04-26) |
+| Failure routing (DECLINED vs FAILED) | P0 complete (qhorus#124 claudony persona mapping) |
+| Recovery on stuck reviewer | P1.2 RecoveryPolicy SPI |
+| Cross-deployment trust | P2.1 TrustExport/ImportService |
+
+**Current foundation status (as of 2026-05-05):**
+- P0.1 engine-side ✅ DONE — engine#186 closed
+- P0.2 ✅ DONE — qhorus#123, commitment outcomes → trust scoring
+- P0.3 ActorTypeResolver ✅ DONE — all consumers updated
+- P0.3 InstanceActorIdProvider SPI ✅ DONE — claudony persona mapping still pending (qhorus#124)
+- P1.4 CaseLedgerEntry ✅ DONE — merged 2026-04-26
+- **Remaining P0:** qhorus#124 claudony persona→session mapping (no end-to-end trust accumulation yet)
+- **Remaining P1:** concurrency throttling (P1.1), RecoveryPolicy SPI (P1.2), TrustWeightedSelectionStrategy wired (P1.3), Doltgres backend (P1.5)
+
+---
+
+## Gastown Feature Parity Checklist
+
+Features Gastown's Refinery provides that devtown must match or exceed:
+
+| Gastown feature | devtown approach | Status |
+|----------------|-----------------|--------|
+| Merge queue (Bors batch-then-bisect) | CasePlanModel + bisect sub-case binding | Not started |
+| AI coding agent workers | Claudony WorkerProvisioner (already integrated via claudony-casehub) | Foundation ready |
+| Human workspaces (Crew) | Human review WorkItem via casehub-work | Foundation ready |
+| Cross-rig agent routing | Sub-case orchestration | Foundation ready |
+| CLI tooling (`gt feed`, `gt problems`, etc.) | MCP tools + claudony dashboard extensions | Not started |
+| Predecessor session context (`gt seance`) | WorkerContextProvider + Doltgres AS OF (P1.5) | Partial |
+| Federated reputation (Wasteland) | TrustExport/ImportService (P2.1) | Not started |
+| Sandboxed execution | gt-proxy-server equivalent | Not planned |
+| Agent concurrency control (Scheduler) | SpawnThrottle in ClaudonyConfig (P1.1) | Not started |
+| Hierarchical watchdog (Witness/Deacon/Boot) | RecoveryPolicy SPI (P1.2) | Not started |
+
+**devtown advantages Gastown cannot provide:**
+- Formal obligation tracking per code review assignment (qhorus COMMAND → Commitment)
+- Cryptographically tamper-evident merge decision audit (Merkle)
+- Trust-weighted reviewer routing (automatic, not stamp-curated)
+- GDPR-compliant merge audit (ComplianceSupplement)
+- Adaptive routing from code content (ACM bindings, not pre-declared workflow)
+- Parallel human + automated checks (WAITING state + simultaneous binding fire)
+
+---
+
+## Build and Test
+
+```bash
+JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn clean install
+```
+
+**Use `mvn` not `./mvnw`** — maven wrapper not configured on this machine.
 
 ---
 
 ## Ecosystem Conventions
-
-All casehubio projects align on these conventions:
 
 **Quarkus version:** All projects use `3.32.2`. When bumping, bump all projects together.
 
@@ -134,8 +264,6 @@ JAVA_HOME=$(/usr/libexec/java_home -v 26)    # Java 26, use for dev and tests
 JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home  # GraalVM 25, native only
 ```
 
-**Use `mvn` not `./mvnw`** — maven wrapper not configured on this machine.
-
 ---
 
 ## Work Tracking
@@ -147,3 +275,4 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home  # Graa
 - **Before implementation begins** — check if an active issue exists. If not, run issue-workflow Phase 1 before writing any code.
 - **Before any commit** — confirm issue linkage.
 - **All commits should reference an issue** — `Refs #N` (ongoing) or `Closes #N` (done).
+- **Exception:** housekeeping commits (doc fixes, dependency bumps) may omit issue links.
