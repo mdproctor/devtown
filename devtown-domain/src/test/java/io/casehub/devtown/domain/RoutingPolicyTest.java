@@ -101,4 +101,44 @@ class RoutingPolicyTest {
         )).isInstanceOf(NullPointerException.class)
           .hasMessageContaining("rationale");
     }
+
+    @Test
+    void nullThresholdThrowsNullPointerException() {
+        assertThatThrownBy(() -> new RoutingPolicy(
+            null, OptionalInt.of(10),
+            OptionalDouble.of(0.05), Optional.empty(),
+            "test rationale"
+        )).isInstanceOf(NullPointerException.class)
+          .hasMessageContaining("threshold");
+    }
+
+    @Test
+    void nullMinimumObservationsThrowsNullPointerException() {
+        assertThatThrownBy(() -> new RoutingPolicy(
+            OptionalDouble.of(0.70), null,
+            OptionalDouble.of(0.05), Optional.empty(),
+            "test rationale"
+        )).isInstanceOf(NullPointerException.class)
+          .hasMessageContaining("minimumObservations");
+    }
+
+    @Test
+    void nullBorderlineMarginThrowsNullPointerException() {
+        assertThatThrownBy(() -> new RoutingPolicy(
+            OptionalDouble.of(0.70), OptionalInt.of(10),
+            null, Optional.empty(),
+            "test rationale"
+        )).isInstanceOf(NullPointerException.class)
+          .hasMessageContaining("borderlineMargin");
+    }
+
+    @Test
+    void nullFallbackTypeThrowsNullPointerException() {
+        assertThatThrownBy(() -> new RoutingPolicy(
+            OptionalDouble.of(0.70), OptionalInt.of(10),
+            OptionalDouble.of(0.05), null,
+            "test rationale"
+        )).isInstanceOf(NullPointerException.class)
+          .hasMessageContaining("fallbackType");
+    }
 }
