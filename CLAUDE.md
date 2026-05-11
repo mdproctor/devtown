@@ -126,41 +126,37 @@ These live in `docs/` in this repo and should be read before any significant imp
 
 ### The Domain Model
 
-**Capability tags** — what types of work exist in software development:
+**Vocabulary types** — typed constant classes replacing the original flat namespace (Epic 2 ✅):
 
-| Tag | Description |
-|-----|-------------|
-| `code-analysis` | Initial code characterisation — what's in the PR (security surface, complexity, scope) |
-| `security-review` | Cryptographic, authentication, injection vulnerability review |
-| `architecture-review` | Design decisions, API contracts, cross-repo impact |
-| `style-review` | Coding standards, naming, readability |
-| `test-coverage` | Coverage analysis, missing test identification |
-| `performance-analysis` | Algorithmic complexity, query patterns, memory allocation |
-| `ci-runner` | Build and test execution |
-| `merge-executor` | Merge operation after all gates pass |
-| `human-approval-gate` | Human reviewer WorkItem |
-| `notify` | Failure/escalation notification delivery |
-| `batch-bisect` | Merge queue bisect when batch tip fails |
-| `coordinated-merge` | Cross-repo atomic merge coordination |
-| `coordinated-rollback` | Cross-repo rollback on sub-case fault |
+| Class | Constants | What they represent |
+|-------|-----------|---------------------|
+| `ReviewDomain` | `code-analysis`, `security-review`, `architecture-review`, `style-review`, `test-coverage`, `performance-analysis` | Analytical work a PR needs; what an AI agent is qualified to perform |
+| `AgentQualification` | `ci-runner`, `merge-executor` | Execution capabilities with trust scoring |
+| `HumanDecision` | `human-decision:pr-approval` | Formal accountability events requiring human judgment (casehub-work WorkItem lifecycle) |
+| `HumanOversight` | `human-oversight:routing-review` | System-level review when automated routing confidence is low (borderline trust, fleet gap, insufficient observations) |
 
-**Trust dimensions** — how trust is scoped for this domain:
+`NOTIFY` removed — connector call, not a trust-scored capability. `BATCH_BISECT`, `COORDINATED_MERGE`, `COORDINATED_ROLLBACK` deferred to CasePlanModel definitions (Epics 4/5, devtown#20).
+
+**Trust dimensions** — how trust is scoped for this domain (Epic 2 ✅):
 
 | Dimension | Measures |
 |-----------|---------|
 | `review-thoroughness` | Does the agent find issues that later cause incidents? |
 | `false-positive-rate` | Does the agent flag issues that turn out to be non-issues? |
-| `security-specialist` | Track record on security-sensitive reviews specifically |
-| `scope-awareness` | Does the agent correctly identify when it should DECLINE vs attempt? |
+| `scope-calibration` | Does the agent correctly DECLINE work outside its capability? |
 
-**Routing thresholds** — minimum trust score per capability:
+`security-specialist` removed — per-capability quality expressed via `ScoreType.CAPABILITY` in the ledger (ledger#76 tracks composite per-capability quality scores).
 
-| Capability | Minimum trust | Rationale |
-|-----------|--------------|-----------|
-| `security-review` | 0.70 | Security mistakes reach production |
-| `architecture-review` | 0.65 | Design mistakes are expensive to reverse |
-| `style-review` | 0.50 | Baseline — any competent agent |
-| `merge-executor` | 0.80 | Merge is irreversible |
+**Routing policies** — `RoutingPolicy` objects with threshold, minimum observations, and borderline margin (Epic 2 ✅):
+
+| Capability | Threshold | Min observations | Borderline margin | Rationale |
+|-----------|-----------|-----------------|-------------------|-----------|
+| `security-review` | 0.70 | 10 | 0.05 | Security mistakes reach production |
+| `architecture-review` | 0.65 | 8 | 0.05 | Design mistakes are expensive to reverse |
+| `style-review` | 0.50 | 5 | — | Baseline — any competent agent |
+| `merge-executor` | 0.80 | 15 | 0.05 | Merge is irreversible |
+
+**Trust maturity model:** Phase 0 (no observations) → availability routing identical to Gastown. Routing quality improves automatically as attestations accumulate. See `docs/PROGRESS.md` DT-005/DT-006 and parent#14.
 
 ### The CasePlanModels
 
@@ -196,7 +192,7 @@ These live in `docs/` in this repo and should be read before any significant imp
 | Recovery on stuck reviewer | P1.2 RecoveryPolicy SPI |
 | Cross-deployment trust | P2.1 TrustExport/ImportService |
 
-**Current foundation status (as of 2026-05-05):**
+**Current foundation status (as of 2026-05-11):**
 - P0.1 engine-side ✅ DONE — engine#186 closed
 - P0.2 ✅ DONE — qhorus#123, commitment outcomes → trust scoring
 - P0.3 ActorTypeResolver ✅ DONE — all consumers updated
