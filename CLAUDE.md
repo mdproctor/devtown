@@ -277,11 +277,23 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home  # Graa
 ---
 
 
+## Design Document Convention
+
+The design doc for this project is `design/JOURNAL.md`, created by `epic` when an
+epic opens. Between epics this file does not exist.
+
+When `java-git-commit` or `java-update-design` check for DESIGN.md: if no epic is
+active (i.e. `design/JOURNAL.md` does not exist), skip the design sync step entirely.
+Do not stop or error — just omit it and proceed.
+
 ## Development Workflow
 
+Session start: `work-start` (platform coherence, protocols, issue check, IntelliJ MCPs)
 Before designing: `superpowers:brainstorming`
 Before implementing: `superpowers:test-driven-development`
+For all Java work: `java-dev` (loads `testing-principles` + `ide-tooling`)
 Before committing: `superpowers:requesting-code-review`
+After implementation: `implementation-doc-sync` (scoped doc sweep)
 
 Living docs — check for drift after significant changes:
 - `docs/adr/INDEX.md`
