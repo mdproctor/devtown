@@ -53,11 +53,12 @@ Before any git operation, run `git rev-parse --show-toplevel` to confirm which r
 
 | Artifact   | Destination | Notes |
 |------------|-------------|-------|
-| adr        | project     | lands in `docs/adr/` |
-| blog       | project     | published externally via publish-blog (blog-routing.yaml) |
-| design     | workspace   | merged into DESIGN.md at epic close |
-| snapshots  | workspace   | |
-| specs      | project     | lands in `docs/specs/` |
+| adr        | project     | lands in `docs/adr/` — promoted at epic close |
+| specs      | project     | lands in `docs/specs/` — promoted at epic close |
+| blog       | workspace   | staged here; published to mdproctor.github.io via publish-blog |
+| plans      | workspace   | stay in workspace permanently |
+| design     | workspace   | epic journal stays in workspace |
+| snapshots  | workspace   | stay in workspace permanently |
 | handover   | workspace   | |
 
 ---
