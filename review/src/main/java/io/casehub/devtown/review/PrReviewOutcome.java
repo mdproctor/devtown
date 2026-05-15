@@ -1,4 +1,4 @@
-package io.casehub.devtown.app;
+package io.casehub.devtown.review;
 
 import java.util.List;
 
