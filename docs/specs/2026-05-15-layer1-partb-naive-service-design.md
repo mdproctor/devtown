@@ -88,4 +88,4 @@ The naive service carries `@DefaultBean`. Any `@ApplicationScoped` implementatio
 - No real specialist service calls (stubs only)
 - No CDI-injected collaborators in the naive impl
 - No Jackson/JSON configuration (Quarkus REST handles serialisation)
-- No additional Quarkus extensions
+- No additional Quarkus exten

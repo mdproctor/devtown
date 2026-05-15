@@ -1,5 +1,8 @@
 package io.casehub.devtown.app;
 
+import io.casehub.devtown.review.PrPayload;
+import io.casehub.devtown.review.PrReviewApplicationService;
+import io.casehub.devtown.review.PrReviewOutcome;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 

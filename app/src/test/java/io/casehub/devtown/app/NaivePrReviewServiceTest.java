@@ -1,5 +1,6 @@
 package io.casehub.devtown.app;
 
+import io.casehub.devtown.review.PrPayload;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
