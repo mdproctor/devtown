@@ -58,7 +58,7 @@ spec:
     - name: pr-approved
       kind: success
       condition: >-
-        .securityReview.outcome == "APPROVED" and
+        (.codeAnalysis.securitySensitive == false or .securityReview.outcome == "APPROVED") and
         (.codeAnalysis.architectureCrossing == false or .architectureReview.outcome == "APPROVED") and
         .styleCheck.outcome == "APPROVED" and
         .testCoverage.outcome == "APPROVED" and
@@ -137,7 +137,7 @@ spec:
     - name: merge
       on: { contextChange: {} }
       when: >-
-        .securityReview.outcome == "APPROVED" and
+        (.codeAnalysis.securitySensitive == false or .securityReview.outcome == "APPROVED") and
         (.codeAnalysis.architectureCrossing == false or .architectureReview.outcome == "APPROVED") and
         .styleCheck.outcome == "APPROVED" and
         .testCoverage.outcome == "APPROVED" and

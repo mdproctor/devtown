@@ -141,16 +141,21 @@ These were in the original Gastown-derived 13-tag vocabulary and removed. They a
 
 ## Layer 5 — casehub-engine (adaptive routing on code content)
 
-**Completed:** 🔲 in progress — Epic 3 (devtown#10) started 2026-05-15, brainstorming in progress
+**Completed:** Epic 3 (devtown#10) shipped 2026-05-19
 **Issues:** casehubio/devtown#10 (Epic 3: PR review CasePlanModel — content-driven routing and parallel checks)
-**Design specs:** 🔲 to be written — will land in `docs/specs/` when brainstorming completes this session
-**Blog:** 🔲
-**Improvement log:** 🔲 — DT entries to be added as implementation decisions are made
+**Design specs:** `docs/specs/2026-05-15-epic3-pr-review-caseplanmodel-design.md`
+**Blog:** `blog/2026-05-19-mdp01-from-naive-to-adaptive.md` 🔲 (not yet drafted)
+**Improvement log:** `docs/PROGRESS.md` — DT entries to be added as improvement decisions are formalised
 
 **Key files:**
-- 🔲 `review/src/main/resources/devtown/pr-review.yaml` — YAML CasePlanModel definition; expected when Epic 3 ships. See §What it shows.
-- 🔲 `review/src/main/java/io/casehub/devtown/review/PrReviewCaseService.java` — expected: `@ApplicationScoped` (no `@DefaultBean`); displaces `NaivePrReviewService`. See §Key wiring.
-- 🔲 `review/src/test/java/io/casehub/devtown/review/PrReviewBindingConditionTest.java` — expected: plain unit tests for JQ binding `when` conditions using `LambdaExpressionEvaluator`
+- `review/src/main/resources/devtown/pr-review.yaml` — YAML CasePlanModel: 9 bindings (4 groups), 3 goals, 9 capabilities
+- `app/src/main/java/io/casehub/devtown/app/PrReviewCaseHub.java` — `@ApplicationScoped extends YamlCaseHub("devtown/pr-review.yaml")`
+- `app/src/main/java/io/casehub/devtown/app/PrReviewCaseService.java` — `@ApplicationScoped implements PrReviewApplicationService` (no `@DefaultBean`); displaces `NaivePrReviewService`
+- `review/src/test/java/io/casehub/devtown/review/PrReviewCaseDefinition.java` — fluent DSL factory for binding condition unit tests
+- `review/src/test/java/io/casehub/devtown/review/MapCaseContext.java` — `CaseContext` test helper backed by `Map<String,Object>`
+- `review/src/test/java/io/casehub/devtown/review/PrReviewBindingConditionTest.java` — 28 pure unit tests for all 9 binding conditions; no Quarkus required
+- `app/src/test/java/io/casehub/devtown/app/PrReviewCaseHubTest.java` — `@QuarkusTest` YAML round-trip: 5 tests verifying binding/goal/capability counts
+- `app/src/test/java/io/casehub/devtown/app/InMemoryLedgerEntryRepository.java` — `@ApplicationScoped` test stub; needed for `@QuarkusTest` CDI resolution when `casehub-ledger` runtime is on the classpath
 
 ### What it shows
 
@@ -162,7 +167,7 @@ See `docs/orchestration-advantages.md` §1 (content-driven routing), §2 (parall
 
 ### The gap comments
 
-🔲 To fill when Layer 5 code ships. These are the Layer 1 gap comments that Layer 5 addresses:
+These are the Layer 1 gap comments that Layer 5 addresses:
 
 ```java
 // LAYER 1 GAP: no attribution — which agent ran this analysis? No record.
@@ -176,31 +181,46 @@ Layer 5 closes: attribution (`CaseLedgerEntry` records which binding dispatched 
 
 ### Key wiring
 
-🔲 To fill as Epic 3 implementation decisions are made. Expected areas:
+1. **YAML lives in `review/`, wired in `app/`.** `pr-review.yaml` lives in `review/src/main/resources/devtown/` — Quarkus classloader picks it up from the review module JAR at test time; no copy to `app/` needed. `PrReviewCaseHub` and `PrReviewCaseService` live in `app/` — consistent with platform convention: all CDI wiring in the Tier 3 app module.
 
-- **YAML loading at startup** — classpath resource loader pattern; check engine test `YamlSimpleCaseHubBeanTest` for how `CaseDefinition` is loaded from YAML and registered as a `CaseMetaModel`
-- **`@DefaultBean` displacement** — `PrReviewCaseService @ApplicationScoped` (no `@DefaultBean`) in `review` displaces `NaivePrReviewService @DefaultBean` in `app`. Same CDI pattern as Layer 1 established; no extra wiring needed
-- **`HumanTaskTarget` binding** — use `HumanTaskTarget.inline()` (not template — casehub-work templates not yet configured in devtown). API: `io.casehub.api.model.HumanTaskTarget`
-- **Binding `when` conditions** — JQ expressions over `CaseContext`; need a committed CaseContext schema defining PR payload fields and code-analysis output fields. Schema design is the first open question in Epic 3 brainstorming (in progress)
-- **`@DefaultBean` on engine no-op SPIs** — any new SPI no-ops must use `@DefaultBean @ApplicationScoped`, not bare `@ApplicationScoped`; see `parent/docs/protocols/engine-spi-noops-defaultbean.md`
+2. **`@DefaultBean` displacement.** `PrReviewCaseService @ApplicationScoped` (no `@DefaultBean`) displaces `NaivePrReviewService @DefaultBean` — no explicit CDI configuration required. Both classes remain in the build; Layer 1 is never deleted.
+
+3. **Initial CaseContext.** `PrReviewCaseService.review(PrPayload)` builds `{ pr: {...}, policy: {...} }` from the payload and `@ConfigProperty`-injected policy values. The `policy` subtree will be replaced by `PreferenceProvider.resolve(scope).asMap()` when casehub-platform-api ships (parent#26).
+
+4. **`casehub-engine` runtime in `app/pom.xml`.** Required for `YamlCaseHub` CDI injection of `CaseHubRuntime`. Without it, Quarkus fails to satisfy the injection point at startup.
+
+5. **Human approval via capability string.** Expressed as `capability: human-decision:pr-approval` in YAML. Full `HumanTaskTarget` wiring (casehub-work-adapter bridging `WorkItemLifecycleEvent → PlanItem`) is deferred to devtown#30.
+
+6. **`casehub-engine` and `casehub-engine-testing` (test scope) added to `app/pom.xml`.** `casehub-engine-testing` provides engine test repos; `casehub-ledger` test repos are not included — see §Gotchas.
 
 ### Gotchas
 
-🔲 To fill as encountered during Epic 3 implementation. Known risks:
+- **`@QuarkusTest` CDI failure with `casehub-ledger` runtime on classpath — misleading error message**
+  - Symptom: `@QuarkusTest` fails with `ClassSelector resolution failed` — looks like a class-loading or missing dependency problem, not a CDI error
+  - Cause: `casehub-ledger` provides a Panache `ReactiveLedgerEntryRepository` requiring a real datasource. `casehub-engine-testing` provides engine repos but not ledger repos. CDI cannot satisfy the injection point, but the error message does not name the unsatisfied bean.
+  - Fix: add `@ApplicationScoped InMemoryLedgerEntryRepository` stub to `{domain}-app/src/test/`. Tracked in garden as GE-20260519-e13b01.
 
-- **`@ApplicationScoped` no-op SPI in engine without `@DefaultBean`** — collides with devtown's implementation when indexed together via `casehub-testing`. Symptom: CDI ambiguity error on `@QuarkusTest`. Fix: `@DefaultBean @ApplicationScoped` on all engine no-ops. Protocol: `parent/docs/protocols/engine-spi-noops-defaultbean.md`
-- **HITL wiring gap** — `HumanTaskTarget` bindings in the YAML compile but the casehub-work-adapter does not yet bridge `WorkItemLifecycleEvent → PlanItem` transitions for devtown. Tests must use mock workers; document this explicitly in the LAYER-LOG when encountered
+- **Merge binding requires a `securitySensitive == false` short-circuit**
+  - Symptom: non-security PRs never satisfy the merge condition — `securityReview` never appears in context, so any `securityReview`-referencing predicate evaluates false or throws
+  - Cause: the merge binding initially only checked `securityReview` approval without a guard for the non-security-sensitive case
+  - Fix: add `when: (.securitySensitive == false) or (.securityReview.outcome == "APPROVED")` short-circuit in both the YAML and the fluent DSL factory. Test `fires_whenNotSecuritySensitiveAndNoSecurityReview` added to cover this path.
+
+- **`quarkus:build` (production package) fails — foundation CDI SPIs unsatisfied**
+  - Symptom: `mvn install` fails during `quarkus:build`; all 108 tests pass; the failure is only in the production packaging phase
+  - Cause: engine CDI SPIs are unsatisfied without claudony + persistence module present. This is a known foundation gap — the harness app cannot be packaged standalone without its full dependency stack.
+  - Status: tracked in devtown#31. Does not affect test coverage or local development.
+
+- **HITL wiring gap (known, deferred)**
+  - `HumanTaskTarget` bindings in the YAML compile and unit-test correctly, but the casehub-work-adapter does not yet bridge `WorkItemLifecycleEvent → PlanItem` transitions for devtown. Full human approval flow is deferred to devtown#30. Tests use mock workers.
 
 ### Pattern to replicate (in another domain)
 
-🔲 To fill when Epic 3 ships. Anticipated steps (check `../aml/LAYER-LOG.md §Layer 5` when available as the reference):
-
-1. Add `casehub-engine` runtime dependency to `{domain}-app` pom
-2. Define goals in YAML: each goal is a JQ predicate over `CaseContext` (e.g. `.reviews | length >= 2`)
-3. Define capabilities in YAML: one per specialist work type, matching `{domain}.ReviewDomain` constants
-4. Define bindings in YAML: `on: { contextChange: {} }`, `when: <JQ predicate over CaseContext>`, `capability: <name>`
-5. Define completion policy: `success: allOf: [goal1, goal2, ...]`
-6. Load YAML at startup via classpath loader — register as `CaseMetaModel` in the engine
-7. Implement `@ApplicationScoped` service (no `@DefaultBean`) in `{domain}-review` that opens a `CaseInstance` when a domain event arrives — displaces the naive service
-8. Unit test binding conditions: use `LambdaExpressionEvaluator` + mock `CaseContext` — no Quarkus required
+1. Create the YAML CasePlanModel in `{domain}-review/src/main/resources/{domain}/` — not in `{domain}-app/`; Quarkus classloader picks it up from the review module JAR at test time
+2. Extend `YamlCaseHub` in `{domain}-app/` with `@ApplicationScoped` — pass the classpath resource path (e.g. `"devtown/pr-review.yaml"`) to `super()`
+3. Create `@ApplicationScoped` (no `@DefaultBean`) service implementing the port interface in `{domain}-app/` — inject the CaseHub bean, build initial CaseContext from the domain payload + policy config, call `caseHub.startCase(initialContext)`
+4. Define scoped policy values via `@ConfigProperty` for now — replace with `PreferenceProvider.resolve(scope).asMap()` when casehub-platform-api ships (parent#26)
+5. Add `casehub-engine` (runtime) and `casehub-engine-testing` (test scope) to `{domain}-app/pom.xml`
+6. Add `InMemoryLedgerEntryRepository` stub to `{domain}-app/src/test/` if `casehub-ledger` runtime is on the classpath (see GE-20260519-e13b01 in the garden)
+7. Write binding condition unit tests using a fluent DSL factory (+ `MapCaseContext` helper) in `{domain}-review/src/test/` — no Quarkus required; tests are fast and cover every binding predicate including short-circuit paths
+8. Write a `@QuarkusTest` in `{domain}-app/src/test/` to verify the YAML loads cleanly, with assertions on expected binding count, goal count, and capability count — catches YAML parse errors and classpath issues at test time
 
