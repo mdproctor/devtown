@@ -223,17 +223,19 @@ These live in `docs/` in this repo and should be read before any significant imp
 
 | Capability | Foundation prerequisite |
 |-----------|------------------------|
-| Content-driven routing | P0 complete (engine#186 merged) |
-| Parallel check execution | P0 complete |
+| Content-driven routing | P0 complete (engine#186 merged) ✅ DONE |
+| Parallel check execution | P0 complete ✅ DONE |
+| PR review CasePlanModel (Epic 3) | P0 complete ✅ DONE — devtown#10 shipped 2026-05-19 |
+| Scoped policy preferences | casehub-platform-api (parent#26) — stub via @ConfigProperty until SPI lands |
+| Human review WorkItem end-to-end | P0 complete, casehub-work-adapter HITL wiring (devtown#30) |
 | Trust-weighted assignment | P1 complete (P1.3 — TrustWeightedSelectionStrategy wired) |
-| Human review WorkItem | P0 complete, casehub-work-adapter HITL wiring |
 | Merge queue (full) | P1 complete |
 | Cryptographic audit | P1.4 ✅ DONE (CaseLedgerEntry merged 2026-04-26) |
 | Failure routing (DECLINED vs FAILED) | P0 complete (qhorus#124 claudony persona mapping) |
 | Recovery on stuck reviewer | P1.2 RecoveryPolicy SPI |
 | Cross-deployment trust | P2.1 TrustExport/ImportService |
 
-**Current foundation status (as of 2026-05-11):**
+**Current foundation status (as of 2026-05-19):**
 - P0.1 engine-side ✅ DONE — engine#186 closed
 - P0.2 ✅ DONE — qhorus#123, commitment outcomes → trust scoring
 - P0.3 ActorTypeResolver ✅ DONE — all consumers updated
