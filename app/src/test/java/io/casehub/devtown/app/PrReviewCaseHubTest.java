@@ -43,9 +43,10 @@ class PrReviewCaseHubTest {
     }
 
     @Test
-    void hasNineCapabilities() {
+    void hasEightCapabilities() {
         var def = caseHub.getDefinition();
-        assertThat(def.getCapabilities()).hasSize(9);
+        // human-decision:pr-approval removed — human-approval now uses humanTask binding target
+        assertThat(def.getCapabilities()).hasSize(8);
     }
 
     @Test
