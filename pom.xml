@@ -42,6 +42,21 @@
         <version>${casehub.version}</version>
       </dependency>
 
+      <!-- casehub-engine-testing — annotated in-memory SPI impls for @QuarkusTest -->
+      <dependency>
+        <groupId>io.casehub</groupId>
+        <artifactId>casehub-engine-testing</artifactId>
+        <version>${casehub.version}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <!-- casehub-engine-scheduler-quartz — JobScheduler + WorkerExecutionManager SPI impls -->
+      <dependency>
+        <groupId>io.casehub</groupId>
+        <artifactId>casehub-engine-scheduler-quartz</artifactId>
+        <version>${casehub.version}</version>
+      </dependency>
+
       <!-- casehub-qhorus-api — not in casehub-parent BOM -->
       <dependency>
         <groupId>io.casehub</groupId>
