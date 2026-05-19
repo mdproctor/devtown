@@ -1,0 +1,147 @@
+dsl: "0.1"
+version: "1.0.0"
+name: pr-review
+namespace: devtown
+title: PR Review — content-driven routing and parallel checks
+
+spec:
+
+  ## ─── Capabilities ──────────────────────────────────────────────────
+  capabilities:
+    - name: code-analysis
+      description: "Characterises the code: crypto, auth, cross-API changes, scope"
+      inputSchema: "{ pr: .pr }"
+      outputSchema: "{ codeAnalysis: . }"
+
+    - name: security-review
+      description: "Security specialist review — fires only on security-sensitive code"
+      inputSchema: "{ pr: .pr, codeAnalysis: .codeAnalysis }"
+      outputSchema: "{ securityReview: { outcome: . } }"
+
+    - name: architecture-review
+      description: "Architecture review — fires only when cross-API changes are detected"
+      inputSchema: "{ pr: .pr, codeAnalysis: .codeAnalysis }"
+      outputSchema: "{ architectureReview: { outcome: . } }"
+
+    - name: style-review
+      description: "Style and formatting check"
+      inputSchema: "{ pr: .pr }"
+      outputSchema: "{ styleCheck: { outcome: . } }"
+
+    - name: test-coverage
+      description: "Test coverage analysis"
+      inputSchema: "{ pr: .pr }"
+      outputSchema: "{ testCoverage: { outcome: . } }"
+
+    - name: performance-analysis
+      description: "Performance impact analysis"
+      inputSchema: "{ pr: .pr }"
+      outputSchema: "{ performanceAnalysis: { outcome: . } }"
+
+    - name: ci-runner
+      description: "Runs the CI suite for the PR"
+      inputSchema: "{ pr: .pr }"
+      outputSchema: "{ ci: { status: . } }"
+
+    - name: "human-decision:pr-approval"
+      description: "Human senior architect approval gate"
+      inputSchema: "{ pr: .pr }"
+      outputSchema: "{ humanApproval: { status: . } }"
+
+    - name: merge-executor
+      description: "Executes the merge when all goals are satisfied"
+      inputSchema: "{ pr: .pr }"
+      outputSchema: "{}"
+
+  ## ─── Goals ──────────────────────────────────────────────────────────
+  goals:
+    - name: pr-approved
+      kind: success
+      condition: >-
+        .securityReview.outcome == "APPROVED" and
+        (.codeAnalysis.architectureCrossing == false or .architectureReview.outcome == "APPROVED") and
+        .styleCheck.outcome == "APPROVED" and
+        .testCoverage.outcome == "APPROVED" and
+        .performanceAnalysis.outcome == "APPROVED"
+
+    - name: security-verified
+      kind: success
+      condition: >-
+        .codeAnalysis.securitySensitive == false or
+        .securityReview.outcome == "APPROVED"
+
+    - name: ci-passing
+      kind: success
+      condition: '.ci.status == "passing"'
+
+  completion:
+    success:
+      allOf:
+        - pr-approved
+        - security-verified
+        - ci-passing
+
+  ## ─── Bindings ────────────────────────────────────────────────────────
+  bindings:
+
+    ## Group 1: Entry — fire immediately when PR arrives
+    - name: initial-analysis
+      on: { contextChange: {} }
+      when: ".pr != null and .codeAnalysis == null"
+      capability: code-analysis
+
+    - name: run-ci
+      on: { contextChange: {} }
+      when: ".pr != null and .ci == null"
+      capability: ci-runner
+
+    ## Group 2: Content-driven — fire after analysis, all in parallel
+    - name: security-review
+      on: { contextChange: {} }
+      when: >-
+        .codeAnalysis.complete == true and
+        .codeAnalysis.securitySensitive == true and
+        .securityReview == null
+      capability: security-review
+
+    - name: architecture-review
+      on: { contextChange: {} }
+      when: >-
+        .codeAnalysis.complete == true and
+        .codeAnalysis.architectureCrossing == true and
+        .architectureReview == null
+      capability: architecture-review
+
+    - name: style-check
+      on: { contextChange: {} }
+      when: ".codeAnalysis.complete == true and .styleCheck == null"
+      capability: style-review
+
+    - name: test-coverage
+      on: { contextChange: {} }
+      when: ".codeAnalysis.complete == true and .testCoverage == null"
+      capability: test-coverage
+
+    - name: performance-analysis
+      on: { contextChange: {} }
+      when: ".codeAnalysis.complete == true and .performanceAnalysis == null"
+      capability: performance-analysis
+
+    ## Group 3: Human gate — fires alongside CI when PR exceeds threshold
+    - name: human-approval
+      on: { contextChange: {} }
+      when: ".pr.linesChanged > .policy.humanApprovalThreshold and .humanApproval == null"
+      capability: "human-decision:pr-approval"
+
+    ## Group 4: Merge — fires when all conditions satisfied
+    - name: merge
+      on: { contextChange: {} }
+      when: >-
+        .securityReview.outcome == "APPROVED" and
+        (.codeAnalysis.architectureCrossing == false or .architectureReview.outcome == "APPROVED") and
+        .styleCheck.outcome == "APPROVED" and
+        .testCoverage.outcome == "APPROVED" and
+        .performanceAnalysis.outcome == "APPROVED" and
+        (.pr.linesChanged <= .policy.humanApprovalThreshold or .humanApproval.status == "approved") and
+        .ci.status == "passing"
+      capability: merge-executor

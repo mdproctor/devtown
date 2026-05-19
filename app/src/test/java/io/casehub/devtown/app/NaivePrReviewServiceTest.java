@@ -11,21 +11,21 @@ class NaivePrReviewServiceTest {
 
     @Test
     void review_returnsNonNullOutcome() {
-        var pr = new PrPayload("casehubio/devtown", 42, "abc123", 150);
+        var pr = new PrPayload("casehubio/devtown", 42, "abc123", "main", 150);
         var outcome = service.review(pr);
         assertThat(outcome).isNotNull();
     }
 
     @Test
     void review_verdictIsNonBlank() {
-        var pr = new PrPayload("casehubio/devtown", 42, "abc123", 150);
+        var pr = new PrPayload("casehubio/devtown", 42, "abc123", "main", 150);
         var outcome = service.review(pr);
         assertThat(outcome.verdict()).isNotBlank();
     }
 
     @Test
     void review_findingsIsNonNull() {
-        var pr = new PrPayload("casehubio/devtown", 42, "abc123", 150);
+        var pr = new PrPayload("casehubio/devtown", 42, "abc123", "main", 150);
         var outcome = service.review(pr);
         assertThat(outcome.findings()).isNotNull();
     }

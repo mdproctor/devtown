@@ -1,3 +1,3 @@
 package io.casehub.devtown.review;
 
-public record PrPayload(String repo, int prNumber, String headSha, int linesChanged) {}
+public record PrPayload(String repo, int prNumber, String headSha, String baseRef, int linesChanged) {}
