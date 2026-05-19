@@ -43,11 +43,6 @@ spec:
       inputSchema: "{ pr: .pr }"
       outputSchema: "{ ci: { status: . } }"
 
-    - name: "human-decision:pr-approval"
-      description: "Human senior architect approval gate"
-      inputSchema: "{ pr: .pr }"
-      outputSchema: "{ humanApproval: { status: . } }"
-
     - name: merge-executor
       description: "Executes the merge when all goals are satisfied"
       inputSchema: "{ pr: .pr }"
@@ -131,7 +126,9 @@ spec:
     - name: human-approval
       on: { contextChange: {} }
       when: ".pr.linesChanged > .policy.humanApprovalThreshold and .humanApproval == null"
-      capability: "human-decision:pr-approval"
+      humanTask:
+        title: "PR approval required"
+        outputMapping: "{ humanApproval: { status: .decision } }"
 
     ## Group 4: Merge — fires when all conditions satisfied
     - name: merge
