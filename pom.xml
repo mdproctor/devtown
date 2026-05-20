@@ -57,6 +57,21 @@
         <version>${casehub.version}</version>
       </dependency>
 
+      <!-- casehub-engine-work-adapter — bridge between WorkItemLifecycleEvent and PlanItem -->
+      <dependency>
+        <groupId>io.casehub</groupId>
+        <artifactId>casehub-engine-work-adapter</artifactId>
+        <version>${casehub.version}</version>
+      </dependency>
+
+      <!-- casehub-engine-persistence-memory — in-memory SPI impls including SubCaseGroupRepository -->
+      <dependency>
+        <groupId>io.casehub</groupId>
+        <artifactId>casehub-engine-persistence-memory</artifactId>
+        <version>${casehub.version}</version>
+        <scope>test</scope>
+      </dependency>
+
       <!-- casehub-qhorus-api — not in casehub-parent BOM -->
       <dependency>
         <groupId>io.casehub</groupId>

@@ -227,7 +227,7 @@ These live in `docs/` in this repo and should be read before any significant imp
 | Parallel check execution | P0 complete ✅ DONE |
 | PR review CasePlanModel (Epic 3) | P0 complete ✅ DONE — devtown#10 shipped 2026-05-19 |
 | Scoped policy preferences | casehub-platform-api (parent#26) — stub via @ConfigProperty until SPI lands |
-| Human review WorkItem end-to-end | P0 complete, casehub-work-adapter HITL wiring (devtown#30) |
+| Human review WorkItem end-to-end | P0 complete ✅ DONE — casehub-work-adapter wired (devtown#33), e2e test pending (devtown#30) |
 | Trust-weighted assignment | P1 complete (P1.3 — TrustWeightedSelectionStrategy wired) |
 | Merge queue (full) | P1 complete |
 | Cryptographic audit | P1.4 ✅ DONE (CaseLedgerEntry merged 2026-04-26) |
