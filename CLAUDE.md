@@ -104,11 +104,9 @@ type: java
 
 **Secondary goal:** LLM and human tutorial material, produced as a by-product of building the application correctly. The tutorial structure emerges from the layered adoption sequence — do not design for the tutorial.
 
-**LAYER-LOG.md** (`LAYER-LOG.md` at project root) is the primary new artifact. A layer is not complete until its entry is fully written — but entries are written incrementally across sessions. Write what is known now; mark pending sections with `🔲` including expected content so future sessions can fill them in without context reconstruction.
+**LAYER-LOG.md** (`LAYER-LOG.md` at project root) is the primary new artifact. A layer entry is complete when the layer closes — written in full at that point, not incrementally with placeholders.
 
 **Epics ≠ layers.** Epics organize work by build convenience; layers organize knowledge by teaching progression. One layer may span multiple epics. The layer table in `../parent/docs/repos/casehub-devtown.md` tracks layer status (pending / in progress / complete) — update it when a layer makes meaningful progress, not only when it finishes.
-
-See `docs/protocols/universal/layer-log.md` in casehub-parent for the full format and placeholder guidance.
 
 ---
 
@@ -148,8 +146,8 @@ Never add to the foundation what is specific to this domain. Never re-implement 
 | `../parent/docs/AGENTIC-HARNESS-GUIDE.md` | Goals, what to produce, retroactive work instructions, layer maintenance |
 | `../parent/docs/repos/casehub-devtown.md` | Harness structure, tutorial layers table, layer status |
 | `../parent/docs/tutorial-strategy.md` | Devtown tutorial layers §7.5 — teaching objectives and code sketches per layer |
-| `../parent/docs/protocols/casehub/HARNESS-INDEX.md` | CaseHub app protocols |
-| `../parent/docs/protocols/universal/INDEX.md` | Universal Java/Quarkus protocols |
+| `../garden/docs/protocols/casehub/HARNESS-INDEX.md` | CaseHub app protocols |
+| `../garden/docs/protocols/universal/INDEX.md` | Universal Java/Quarkus protocols |
 
 ## Reference Documents (this repo)
 
@@ -160,6 +158,56 @@ These live in `docs/` in this repo and should be read before any significant imp
 | `docs/gastown-casehub-analysis-v2.md` | Full architectural comparison — foundation vs foundation, application vs application, roadmap, 32-finding coherence audit, phase gates |
 | `docs/gastown-casehub-analysis.md` | Earlier version — useful for background and alternative framing |
 | `docs/orchestration-advantages.md` | Seven concrete ACM advantages over workflow engines for PR review scenarios — with YAML examples |
+
+---
+
+## Design Phase References
+
+Read these **before designing**, not after. The concern column tells you when each applies.
+
+### Domain model and API design
+
+| Concern | Read first |
+|---------|-----------|
+| Designing a new entity, record, or SPI | `casehub-devtown.md` — does devtown already own this? `PLATFORM.md` capability ownership table — does the foundation own it? |
+| Module placement (`domain/` vs `review/` vs `app/`) | Three-tier rule: `devtown-domain` = pure Java (no Quarkus), `review` = integration logic (casehub-work/engine deps), `app` = all CDI wiring. Port interface (`PrReviewApplicationService`) lives in `review/`, not `app/` — prevents a module dependency cycle |
+| Naming capability tags or trust dimensions | `ReviewDomain`, `AgentQualification`, `HumanDecision`, `HumanOversight`, `DevtownTrustDimension` in `devtown-domain` — extend these rather than creating parallel types |
+| Mapping features to Gastown parity | `docs/gastown-casehub-analysis-v2.md` Gastown feature parity checklist — which Gastown capability does this correspond to, and does devtown's approach improve on it? |
+
+### Tutorial layer design
+
+| Concern | Read first |
+|---------|-----------|
+| Deciding which layer a feature belongs in | `tutorial-strategy.md §7.5` — layer teaching objectives and what each layer must NOT include |
+| Understanding the `@DefaultBean` displacement pattern | LAYER-LOG.md Layer 1 §Key wiring — `NaivePrReviewService @DefaultBean` is displaced at CDI level by each subsequent layer; the naive class is never deleted |
+| Writing gap comments | `NaivePrReviewService.java` — five gap comments model the Layer 1 anti-pattern; each subsequent layer closes exactly one gap |
+| Documenting a completed layer | LAYER-LOG.md — write the entry in full when the layer closes; no incremental placeholders |
+
+### Foundation integration
+
+| Concern | Read first |
+|---------|-----------|
+| Using casehub-work (WorkItem, SLA, escalation) | `../parent/docs/repos/casehub-work.md` |
+| Using casehub-qhorus (COMMAND/RESPONSE/DONE/DECLINE) | `../parent/docs/repos/casehub-qhorus.md` |
+| Using casehub-ledger (Merkle audit, GDPR, trust scoring) | `../parent/docs/repos/casehub-ledger.md` |
+| Using casehub-engine (CasePlanModel, adaptive paths, bindings) | `../parent/docs/repos/casehub-engine.md` |
+| Boundary check — foundation or devtown? | `PLATFORM.md` boundary rules; Layering Rule in this file — if it requires knowledge of PRs, code review, CI, or merge queues, it belongs here |
+
+### Persistence and migrations
+
+| Concern | Read first |
+|---------|-----------|
+| Writing a new Flyway migration | `../garden/docs/protocols/universal/flyway-migration-rules.md` — naming, H2 MODE=PostgreSQL |
+| Assigning a migration version number | V1–V999 devtown domain; V2000+ ledger subclass join tables |
+| Adding casehub-work JPA persistence | devtown#34 — `casehub-persistence-hibernate` must be in the production assembly; without it, engine CDI SPIs are unsatisfied at augmentation |
+
+### Testing
+
+| Concern | Read first |
+|---------|-----------|
+| Writing a `@QuarkusTest` for HITL bindings | PP-20260521-134c38 (pre-seed all parallel check keys with non-null values); PP-20260521-a36692 (MemoryPlanItemStore in `quarkus.arc.selected-alternatives`) |
+| Testing SPI wiring | `../garden/docs/protocols/universal/spi-testing-alternative-inner-classes.md` — `@Alternative` static inner classes, not Mockito |
+| `@QuarkusTest` database setup | `../garden/docs/protocols/universal/quarkus-test-database.md` — H2 MODE=PostgreSQL, datasource config |
 
 ---
 
@@ -226,8 +274,8 @@ These live in `docs/` in this repo and should be read before any significant imp
 | Content-driven routing | P0 complete (engine#186 merged) ✅ DONE |
 | Parallel check execution | P0 complete ✅ DONE |
 | PR review CasePlanModel (Epic 3) | P0 complete ✅ DONE — devtown#10 shipped 2026-05-19 |
-| Scoped policy preferences | casehub-platform-api (parent#26) — stub via @ConfigProperty until SPI lands |
-| Human review WorkItem end-to-end | P0 complete ✅ DONE — casehub-work-adapter wired (devtown#33), e2e test pending (devtown#30) |
+| Scoped policy preferences | casehub-platform ✅ shipped — `PreferenceProvider` with `Path`-based scope hierarchy and JPA persistence available |
+| Human review WorkItem end-to-end | P0 complete ✅ DONE — casehub-work-adapter wired (devtown#33), e2e test complete (devtown#30 ✅ 2026-05-21) |
 | Trust-weighted assignment | P1 complete (P1.3 — TrustWeightedSelectionStrategy wired) |
 | Merge queue (full) | P1 complete |
 | Cryptographic audit | P1.4 ✅ DONE (CaseLedgerEntry merged 2026-04-26) |
@@ -243,6 +291,22 @@ These live in `docs/` in this repo and should be read before any significant imp
 - P1.4 CaseLedgerEntry ✅ DONE — merged 2026-04-26
 - **Remaining P0:** qhorus#124 claudony persona→session mapping (no end-to-end trust accumulation yet)
 - **Remaining P1:** concurrency throttling (P1.1), RecoveryPolicy SPI (P1.2), TrustWeightedSelectionStrategy wired (P1.3), Doltgres backend (P1.5)
+
+### Tutorial Structure (layer-by-layer, from tutorial-strategy.md §7.5)
+
+```
+Layer 1: naive Java — vocabulary model, @DefaultBean naive service, REST entry point ✅ (devtown#8, #9, #27)
+Layer 2: + casehub-work — SLA-bounded human review gate with escalation (devtown#38, in progress)
+Layer 3: + casehub-qhorus — typed COMMAND/RESPONSE/DONE/DECLINE per reviewer agent interaction
+Layer 4: + casehub-ledger — tamper-evident merge decision audit trail
+Layer 5: + casehub-engine — adaptive paths, CasePlanModel, content-driven PR routing ✅ (devtown#10)
+Layer 6: trust routing — trust-weighted reviewer assignment from outcome attestations
+Layer 7: comparison vs Gastown (Refinery/Deacon/Witness architecture)
+```
+
+**Note on layer ordering vs build order:** Layer 5 was built before Layers 2–4 because the engine CasePlanModel (adaptive routing, HITL binding) was the architectural priority. Tutorial ordering differs from chronological build order — LAYER-LOG.md preserves teaching sequence, not build sequence.
+
+**`@DefaultBean` displacement pattern:** devtown uses CDI displacement throughout. `NaivePrReviewService @DefaultBean` is never deleted — each layer adds an `@ApplicationScoped` implementation (without `@DefaultBean`) in `review/` that takes CDI priority. The naive class remains in the build, inactive. This is the structural mechanism that makes each layer independently teachable.
 
 ---
 
