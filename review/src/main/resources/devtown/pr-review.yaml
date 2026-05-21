@@ -128,7 +128,7 @@ spec:
       when: ".pr.linesChanged > .policy.humanApprovalThreshold and .humanApproval == null"
       humanTask:
         title: "PR approval required"
-        outputMapping: "{ humanApproval: { status: .decision } }"
+        outputMapping: "{ humanApproval: . }"
 
     ## Group 4: Merge — fires when all conditions satisfied
     - name: merge
