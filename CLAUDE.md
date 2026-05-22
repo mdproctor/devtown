@@ -148,8 +148,8 @@ Never add to the foundation what is specific to this domain. Never re-implement 
 | `../parent/docs/AGENTIC-HARNESS-GUIDE.md` | Goals, what to produce, retroactive work instructions, layer maintenance |
 | `../parent/docs/repos/casehub-devtown.md` | Harness structure, tutorial layers table, layer status |
 | `../parent/docs/tutorial-strategy.md` | Devtown tutorial layers §7.5 — teaching objectives and code sketches per layer |
-| `../parent/docs/protocols/casehub/HARNESS-INDEX.md` | CaseHub app protocols |
-| `../parent/docs/protocols/universal/INDEX.md` | Universal Java/Quarkus protocols |
+| `../garden/docs/protocols/casehub/HARNESS-INDEX.md` | CaseHub app protocols |
+| `../garden/docs/protocols/universal/INDEX.md` | Universal Java/Quarkus protocols |
 
 ## Reference Documents (this repo)
 
