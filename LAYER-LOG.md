@@ -1,8 +1,8 @@
 # devtown Agentic Harness — Layer Log
 
-Structured record of what was built at each layer, optimised for LLM consumption and future tutorial generation. Correlates with blog entries in `blog/`, git history, and GitHub issues.
+Structured record of what was built at each layer, optimised for LLM consumption. Each entry is the raw material needed to reproduce the layer in a different domain harness. Correlates with blog entries in `blog/`, git history, and GitHub issues.
 
-Each entry documents one layer of the adoption sequence. Entries are written when work on that layer begins — not before. Sections marked `🔲` within an entry are placeholders: the work for that section isn't done yet, but the expected content or pointer is included so future sessions can fill it in without reconstructing context.
+Entries are ordered for learning, not chronology. Each entry is complete when the layer closes — no placeholders.
 
 Cross-references:
 - Blog entries: workspace `blog/` (staged; published to mdproctor.github.io/_notes/ via `publish-blog`)
@@ -210,8 +210,8 @@ Layer 5 closes: attribution (`CaseLedgerEntry` records which binding dispatched 
   - Cause: engine CDI SPIs are unsatisfied without claudony + persistence module present. This is a known foundation gap — the harness app cannot be packaged standalone without its full dependency stack.
   - Status: tracked in devtown#31. Does not affect test coverage or local development.
 
-- **HITL wiring gap (known, deferred)**
-  - `HumanTaskTarget` bindings in the YAML compile and unit-test correctly, but the casehub-work-adapter does not yet bridge `WorkItemLifecycleEvent → PlanItem` transitions for devtown. Full human approval flow is deferred to devtown#30. Tests use mock workers.
+- **HITL wiring gap (resolved devtown#30, 2026-05-21)**
+  - `HumanTaskTarget` bindings were initially unit-tested only. The full `WorkItemLifecycleEvent → PlanItem` bridge was completed in devtown#30: `HumanApprovalLifecycleTest` verifies the end-to-end lifecycle including `@ObservesAsync` delivery and `outputMapping` → case context update.
 
 ### Pattern to replicate (in another domain)
 
