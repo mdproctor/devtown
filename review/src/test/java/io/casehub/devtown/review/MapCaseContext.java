@@ -212,8 +212,4 @@ class MapCaseContext implements CaseContext {
     throw new UnsupportedOperationException();
   }
 
-  @Override
-  public Map<String, Object> evalObjectTemplate(String template) {
-    throw new UnsupportedOperationException();
-  }
 }

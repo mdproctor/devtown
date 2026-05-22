@@ -62,6 +62,14 @@
       <groupId>io.casehub</groupId>
       <artifactId>casehub-connectors-core</artifactId>
     </dependency>
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-platform-expression</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-platform</artifactId>
+    </dependency>
 
     <!-- Quarkus extensions -->
     <dependency>

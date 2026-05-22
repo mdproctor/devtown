@@ -86,6 +86,20 @@
         <version>${casehub.version}</version>
       </dependency>
 
+      <!-- casehub-platform-expression — JQEvaluator bean (required by casehub-engine since engine#316) -->
+      <dependency>
+        <groupId>io.casehub</groupId>
+        <artifactId>casehub-platform-expression</artifactId>
+        <version>${casehub.version}</version>
+      </dependency>
+
+      <!-- casehub-platform — MockPreferenceProvider @DefaultBean (required by casehub-work) -->
+      <dependency>
+        <groupId>io.casehub</groupId>
+        <artifactId>casehub-platform</artifactId>
+        <version>${casehub.version}</version>
+      </dependency>
+
       <!-- AssertJ — test assertion library for all devtown modules -->
       <dependency>
         <groupId>org.assertj</groupId>
