@@ -192,6 +192,7 @@ Read these **before designing**, not after. The concern column tells you when ea
 | Using casehub-ledger (Merkle audit, GDPR, trust scoring) | `../parent/docs/repos/casehub-ledger.md` |
 | Using casehub-engine (CasePlanModel, adaptive paths, bindings) | `../parent/docs/repos/casehub-engine.md` |
 | Boundary check — foundation or devtown? | `PLATFORM.md` boundary rules; Layering Rule in this file — if it requires knowledge of PRs, code review, CI, or merge queues, it belongs here |
+| Implementing a `@Transactional` loop with control-flow exceptions | PP-20260522-f08b62 — private exceptions must not escape the loop boundary; validate eagerly at factory and catch at top-level dispatch |
 
 ### Persistence and migrations
 
@@ -274,7 +275,7 @@ Read these **before designing**, not after. The concern column tells you when ea
 | Content-driven routing | P0 complete (engine#186 merged) ✅ DONE |
 | Parallel check execution | P0 complete ✅ DONE |
 | PR review CasePlanModel (Epic 3) | P0 complete ✅ DONE — devtown#10 shipped 2026-05-19 |
-| Scoped policy preferences | casehub-platform ✅ shipped — `PreferenceProvider` with `Path`-based scope hierarchy and JPA persistence available |
+| Scoped policy preferences | casehub-platform ✅ shipped — `PreferenceProvider` with `Path`-based scope hierarchy and JPA persistence; `Path.root()` pending platform publish (blocks work#212, GE-20260522-9cd6d5) |
 | Human review WorkItem end-to-end | P0 complete ✅ DONE — casehub-work-adapter wired (devtown#33), e2e test complete (devtown#30 ✅ 2026-05-21) |
 | Trust-weighted assignment | P1 complete (P1.3 — TrustWeightedSelectionStrategy wired) |
 | Merge queue (full) | P1 complete |
