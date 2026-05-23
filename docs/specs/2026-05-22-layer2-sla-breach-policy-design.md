@@ -1,7 +1,7 @@
 # Design: Layer 2 — SLA-Bounded Human Review Gate with Escalation
 
-**Issue:** casehubio/devtown#38
-**Date:** 2026-05-22
+**Issue:** casehubio/devtown#41
+**Date:** 2026-05-23 (reconciled from 2026-05-22 draft)
 **Status:** Approved
 
 ---
@@ -13,7 +13,9 @@ Layer 1 gap comment in `NaivePrReviewService`:
 // LAYER 1 GAP: no response SLA — analysis can stall indefinitely with no escalation.
 ```
 
-The `human-approval` binding in `pr-review.yaml` creates a WorkItem but sets no deadline, routes to no group, and has no domain-aware response when the deadline passes. A PR review can sit unclaimed forever with no observable consequence.
+The `human-approval` binding in `pr-review.yaml` creates a WorkItem but sets no deadline,
+routes to no group, and has no domain-aware response when the deadline passes. A PR review
+can sit unclaimed forever with no observable consequence.
 
 ---
 
@@ -21,120 +23,68 @@ The `human-approval` binding in `pr-review.yaml` creates a WorkItem but sets no 
 
 - Formal completion deadline on the human review WorkItem (`expiresIn` in YAML)
 - `candidateGroups` routing — who can claim the task
-- `SlaBreachPolicy` SPI — scope-aware, typed, chainable breach response
-- `SlaBreachHandler` — CDI observer that executes the policy when WorkItems expire
-- `pr-review.yaml` failure goal — case terminates with a named reason rather than stalling
+- `SlaBreachPolicy` SPI implementation in `devtown-domain` — scope-aware, stateless two-tier
+- `SlaBreachPolicyBean` in `devtown-app` — CDI displacement of `NoOpSlaBreachPolicy`
+- `SlaBreachHandler` in `devtown-app` — `SlaBreachEvent` observer that signals the case on Fail
+- `pr-review.yaml` — `candidateGroups` and `expiresIn` on `human-approval` binding
+
+---
+
+## SPI location (reconciled from draft)
+
+The draft assumed `SlaBreachPolicy`, `BreachDecision`, `SlaBreachContext`, `BreachType`, and
+`BreachedTask` would live in `casehub-platform/apps-api`. They shipped in `casehub-work-api`
+(pure Java, depends only on `casehub-platform-api`). `devtown-domain` can depend on
+`casehub-work-api` without violating its pure-Java tier constraint.
+
+`SlaBreachEvent` (`casehub-work-runtime`) carries the leaf `BreachDecision` that actually
+executed. Devtown observes this event — not `WorkItemLifecycleEvent` — to signal the case.
+
+---
+
+## Escalation mechanics (why no SlaBreachHandler on WorkItemLifecycleEvent)
+
+`ExpiryLifecycleService` already:
+1. Builds `SlaBreachContext` from the expired WorkItem
+2. Calls `slaBreachPolicy.onBreach(ctx)` — devtown's bean is the injected impl
+3. Executes the returned `BreachDecision`
+4. Fires `SlaBreachEvent(context, leafDecision)` for observers
+
+**EscalateTo path:** `executeEscalateTo` mutates the WorkItem in-place: `status = PENDING`,
+`candidateGroups = {escalation-group}`, new `expiresAt`. The "ESCALATED" lifecycle event fires
+with `workItem.status = PENDING`. `WorkItemLifecycleAdapter` ignores it (only handles
+COMPLETED/REJECTED/CANCELLED/EXPIRED/ESCALATED status values — PENDING is none of these).
+The PlanItem stays ACTIVE. The case waits. No CONTEXT_CHANGED fires from the adapter.
+
+**Fail path (second expiry):** `executeFail` sets `workItem.status = EXPIRED`,
+`workItem.resolution = fail.reason()` (plain string, not JSON). The "EXPIRED" lifecycle event
+fires. The adapter calls `item.markFaulted()` on the PlanItem and fires CONTEXT_CHANGED — but
+`applyOutputMapping` fails silently (resolution is not valid JSON) so the context is not updated.
+`SlaBreachEvent` fires. `SlaBreachHandler` observes it, extracts caseId from
+`callerRef` via `CallerRef.parse()`, and calls
+`caseHub.signal(caseId, "humanApproval", Map.of("status", fail.reason()))`.
+A second CONTEXT_CHANGED fires with the updated context. The failure goal evaluates.
 
 ---
 
 ## Module structure
 
 ```
-casehubio/platform
-  apps-api/   (NEW — platform#24) pure Java SPI contracts: SlaBreachPolicy, BreachDecision,
-              BreachType, BreachedTask, SlaBreachContext
-  apps/       (NEW — platform#24) Quarkus: NoOpSlaBreachPolicy @ApplicationScoped @DefaultBean
-
 casehubio/devtown
-  devtown-domain/   SlaPreferenceKeys, StringPreference, IntPreference, DefaultSlaBreachPolicy
-  devtown-app/      SlaBreachHandler, SlaBreachPolicyBean (CDI wrapper)
+  domain/pom.xml          add casehub-work-api dependency
+  domain/src/…/sla/
+    SlaPreferenceKeys       typed preference keys
+    DefaultSlaBreachPolicy  pure Java SlaBreachPolicy impl
+  app/src/…/
+    SlaBreachPolicyBean     @ApplicationScoped (no @DefaultBean) — displaces NoOpSlaBreachPolicy
+    SlaBreachHandler        @ApplicationScoped — observes SlaBreachEvent, signals case
 ```
 
-`apps-api` depends on `platform-api` only (Path, Preferences, PreferenceKey). `devtown-domain` depends on `apps-api` and `platform-api`. `devtown-app` depends on `devtown-domain`, `casehub-work-runtime`, `casehub-engine-work-adapter`.
-
-**Sequencing:** `casehubio/platform` must ship `apps-api` and `apps` modules (platform#24) before devtown depends on them.
+No new modules. No new SPIs. `review/` is unchanged.
 
 ---
 
-## SPI contract (in `platform/apps-api`)
-
-### BreachType
-
-```java
-public enum BreachType {
-    CLAIM_EXPIRED,       // nobody claimed within the claim deadline
-    COMPLETION_EXPIRED   // claimed but not completed within the completion deadline
-}
-```
-
-### BreachedTask
-
-Zero-dependency projection of `WorkItem` — `apps-api` never touches `casehub-work-runtime`:
-
-```java
-public record BreachedTask(
-    String taskId,
-    String callerRef,       // "case:{caseId}/pi:{planItemId}"
-    String title,
-    String candidateGroups  // CSV as stored in WorkItem
-) {}
-```
-
-### SlaBreachContext
-
-```java
-public record SlaBreachContext(
-    BreachType breachType,
-    BreachedTask task,
-    Path scope,             // resolved scope path — available for logging or further lookup
-    Preferences preferences // pre-resolved at Path.of("casehubio","devtown","pr-review",caseId)
-) {}
-```
-
-`Preferences` is pre-resolved by the framework so SPI implementations are pure Java — no CDI injection required.
-
-### BreachDecision
-
-Sealed, chainable. `EscalateTo` and `Extend` carry `thenOnBreach` — what the framework executes if the escalated or extended task also breaches:
-
-```java
-public sealed interface BreachDecision
-    permits BreachDecision.Fail, BreachDecision.EscalateTo, BreachDecision.Extend {
-
-    record Fail(String reason) implements BreachDecision {}
-
-    record EscalateTo(
-        String candidateGroup,
-        Duration deadline,
-        BreachDecision thenOnBreach
-    ) implements BreachDecision {}
-
-    record Extend(
-        Duration additionalTime,
-        BreachDecision thenOnBreach
-    ) implements BreachDecision {}
-}
-```
-
-A two-tier escalation chain:
-```java
-BreachDecision.escalateTo("pr-leads", Duration.ofHours(4),
-    new BreachDecision.Fail("sla-breach-final"))
-```
-
-### SlaBreachPolicy
-
-```java
-public interface SlaBreachPolicy {
-    BreachDecision onBreach(SlaBreachContext context);
-}
-```
-
-`NoOpSlaBreachPolicy` in `apps/` is `@ApplicationScoped @DefaultBean` — system is functional with no implementation wired.
-
----
-
-## Scope-aware preference resolution
-
-Preferences resolve at `Path.of("casehubio", "devtown", "pr-review", caseId.toString())`.
-
-`JpaPreferenceProvider` walks ancestors: `["casehubio", "casehubio/devtown", "casehubio/devtown/pr-review", "casehubio/devtown/pr-review/<caseId>"]` — child overrides parent. This gives org → app → case-type → case-instance scope out of the box. RBAC on which level an actor may write to is a future concern (platform#6 persistence backend in place; write-side ACL not yet implemented).
-
-In tests, `MockPreferenceProvider` (`@DefaultBean`) is active. Values configured via `casehub.platform.preferences.defaults.devtown.sla.*` in `application.properties`.
-
----
-
-## devtown-domain: SlaPreferenceKeys and DefaultSlaBreachPolicy
+## SlaPreferenceKeys
 
 ```java
 public final class SlaPreferenceKeys {
@@ -156,84 +106,86 @@ public final class SlaPreferenceKeys {
 }
 ```
 
-`StringPreference` and `IntPreference` are simple records implementing `SingleValuePreference` — defined in `devtown-domain` alongside the keys.
+`StringPreference` and `IntPreference` are records wrapping a single typed value and
+implementing `SingleValuePreference` — defined in `devtown-domain` alongside the keys.
+These are devtown's wrappers over the platform preference value type.
 
-`DefaultSlaBreachPolicy` — pure Java, no CDI:
+---
+
+## DefaultSlaBreachPolicy
+
+Pure Java, no CDI. Stateless two-tier escalation via `candidateGroups` inspection:
+
 ```java
 public class DefaultSlaBreachPolicy implements SlaBreachPolicy {
     @Override
     public BreachDecision onBreach(SlaBreachContext ctx) {
         Preferences p = ctx.preferences();
-        return new BreachDecision.EscalateTo(
-            p.getOrDefault(SlaPreferenceKeys.ESCALATION_GROUP).value(),
-            Duration.ofHours(p.getOrDefault(SlaPreferenceKeys.ESCALATION_HOURS).value()),
-            new BreachDecision.Fail(
-                p.getOrDefault(SlaPreferenceKeys.BREACH_TERMINAL_REASON).value()));
+        String escalationGroup = p.getOrDefault(SlaPreferenceKeys.ESCALATION_GROUP).value();
+        String terminalReason  = p.getOrDefault(SlaPreferenceKeys.BREACH_TERMINAL_REASON).value();
+        int    escalationHours = p.getOrDefault(SlaPreferenceKeys.ESCALATION_HOURS).value();
+
+        if (escalationGroup.isBlank()) {
+            return new BreachDecision.Fail("escalation-group-not-configured");
+        }
+        if (ctx.task().candidateGroups().contains(escalationGroup)) {
+            // Already escalated — this is the terminal breach
+            return new BreachDecision.Fail(terminalReason);
+        }
+        return EscalateTo.to(escalationGroup)
+                .withDeadline(Duration.ofHours(escalationHours));
     }
 }
 ```
 
-CDI registration in `devtown-app`:
-```java
-@ApplicationScoped  // no @DefaultBean — displaces platform NoOpSlaBreachPolicy
-public class SlaBreachPolicyBean extends DefaultSlaBreachPolicy {}
-```
+The stateless design: `candidateGroups` is the tier indicator. No state storage or decision
+serialization. See GE-20260522-f7db12.
 
 ---
 
-## SlaBreachHandler (devtown-app)
+## SlaBreachPolicyBean
+
+```java
+@ApplicationScoped  // no @DefaultBean — displaces casehub-work's NoOpSlaBreachPolicy
+public class SlaBreachPolicyBean extends DefaultSlaBreachPolicy {}
+```
+
+CDI displacement: `NoOpSlaBreachPolicy` in `casehub-work` is `@ApplicationScoped @DefaultBean`.
+This bean, lacking `@DefaultBean`, takes CDI priority and is the single active implementation.
+Follows the `@DefaultBean` displacement pattern used throughout devtown.
+
+---
+
+## SlaBreachHandler
 
 ```java
 @ApplicationScoped
 public class SlaBreachHandler {
 
-    @Inject SlaBreachPolicy slaBreachPolicy;
-    @Inject PreferenceProvider preferenceProvider;
     @Inject PrReviewCaseHub caseHub;
-    @Inject WorkItemService workItemService;
 
-    void onExpiry(@ObservesAsync WorkItemLifecycleEvent event) {
-        if (!isBreachEvent(event)) return;
-        WorkItem item = (WorkItem) event.source();
-        if (!isManagedCallerRef(item.callerRef)) return;
+    void onBreach(@Observes SlaBreachEvent event) {
+        CallerRef ref = CallerRef.parse(event.context().task().callerRef());
+        if (ref == null) return;  // not a case-managed WorkItem
 
-        UUID caseId = CallerRef.parse(item.callerRef).caseId();
-        BreachType breachType = toBreachType(event.eventType());
-        Preferences prefs = preferenceProvider.resolve(
-            SettingsScope.of("casehubio", "devtown", "pr-review", caseId.toString()));
-
-        BreachDecision decision = resolveDecision(item, prefs, breachType);
-        executeDecision(decision, caseId, item);
+        switch (event.decision()) {
+            case BreachDecision.Fail fail ->
+                caseHub.signal(ref.caseId(), "humanApproval",
+                    Map.of("status", fail.reason()));
+            default -> {}  // EscalateTo: WorkItem is in-place reassigned, case waits
+                           // Extend: deferred (work#211)
+        }
     }
 }
 ```
 
-**Filtering:** `isManagedCallerRef` accepts `callerRef != null && callerRef.startsWith("case:")` — only PR review WorkItems. Breach events: `EXPIRED` → `COMPLETION_EXPIRED`, `CLAIM_EXPIRED` → `CLAIM_EXPIRED`.
-
-**Decision resolution:** If the WorkItem carries a `breach-tier=terminal` label, the handler skips the policy and executes `Fail` directly using `SlaPreferenceKeys.BREACH_TERMINAL_REASON`. Otherwise calls `slaBreachPolicy.onBreach(ctx)`.
-
-**Decision execution:**
-
-| Decision | Action |
-|----------|--------|
-| `Fail(reason)` | `caseHub.signal(caseId, "humanApproval", Map.of("status", reason))` |
-| `EscalateTo(group, deadline, thenOnBreach)` | Create escalated WorkItem with new `candidateGroups`, `expiresAt = now + deadline`, same `callerRef`, label `breach-tier=terminal`. Signal case: `humanApproval.status = "escalating"` |
-| `Extend(duration, thenOnBreach)` | Requires `WorkItemService.extend()` — out of scope (work#211) |
-
-**Error handling:**
-
-| Condition | Response |
-|-----------|----------|
-| `callerRef` null or not a case ref | Log warn, return |
-| Case not found | Log warn, return |
-| `WorkItemService.create()` fails during `EscalateTo` | Log error, execute `Fail` directly |
-| `caseHub.signal()` throws | Log error — case won't terminate; known gap |
+`CallerRef` is from `casehub-engine-work-adapter` (already in `app/` deps).
+`caseHub.signal()` sets a path in the case context and fires CONTEXT_CHANGED internally.
 
 ---
 
 ## pr-review.yaml changes
 
-Add `expiresIn` and `candidateGroups` to `human-approval` binding:
 ```yaml
 - name: human-approval
   on: { contextChange: {} }
@@ -241,51 +193,54 @@ Add `expiresIn` and `candidateGroups` to `human-approval` binding:
   humanTask:
     title: "PR approval required"
     candidateGroups: [pr-reviewers]
-    expiresIn: 24h
+    expiresIn: PT24H
     outputMapping: "{ humanApproval: . }"
 ```
 
-Add failure goal (pending engine#326 — verify engine support):
+**Failure goal (deferred — engine#326):**
 ```yaml
 - name: pr-sla-breached
   kind: failure
-  condition: >-
-    .humanApproval.status == "sla-breach" or
-    .humanApproval.status == "sla-breach-final"
+  condition: '.humanApproval.status == "sla-breach"'
 ```
 
-If `kind: failure` is not yet supported, the case stalls on SLA breach (no merge possible) — acceptable for Layer 2; failure goal support tracked in engine#326.
+Without engine#326, the case stalls on SLA breach (merge binding condition requires
+`.humanApproval.status == "approved"` — never met). Acceptable for Layer 2; the case
+does not reach a false-positive success.
 
 ---
 
 ## Testing
 
-### Unit — DefaultSlaBreachPolicy
+### Unit — DefaultSlaBreachPolicyTest
 
-Plain JUnit, no Quarkus. Build `MapPreferences` directly. Cover:
-- `COMPLETION_EXPIRED` → returns `EscalateTo` with chained `Fail`
-- `CLAIM_EXPIRED` → appropriate decision
-- Default preference values with no overrides
-- `thenOnBreach` is a `Fail` with configured terminal reason
+Plain JUnit, no Quarkus. `MapPreferences` directly.
+- First breach (candidateGroups={pr-reviewers}): → `EscalateTo` to pr-leads, 8h deadline
+- Second breach (candidateGroups={pr-leads}): → `Fail("sla-breach")`
+- Blank escalation group configured: → `Fail("escalation-group-not-configured")`
+- Default preference values require no property override
 
 ### SPI wiring — SlaBreachHandlerWiringTest
 
-`@Alternative @ApplicationScoped` `CapturingBreachPolicy` records the `SlaBreachContext` delivered by the handler. Verifies scope path, breach type, and `BreachedTask` fields. Follows `spi-testing-alternative-inner-classes.md`.
+`@QuarkusTest`. `@Alternative @ApplicationScoped` `CapturingBreachPolicy` (static inner class,
+no `@DefaultBean`) captures `SlaBreachContext`. Verifies policy is injected by
+`ExpiryLifecycleService` and that bean displaces NoOp. Follows
+`spi-testing-alternative-inner-classes.md`.
 
 ### Integration — SlaBreachLifecycleTest
 
-Full two-tier breach lifecycle as `@QuarkusTest`. Checkpoints:
-1. Start case (pre-seeded per PP-20260521-134c38)
-2. WorkItem created by `human-approval` binding
-3. Trigger expiry: set `WorkItem.expiresAt` to past, call `ExpiryLifecycleService.checkExpired()` directly
-4. Escalated WorkItem created (`candidateGroups=pr-leads`); case context `humanApproval.status = "escalating"`
-5. Trigger expiry on escalated WorkItem
-6. Case context `humanApproval.status = "sla-breach"`; no further WorkItems created
+Full two-tier breach as `@QuarkusTest`. Pre-seeded per PP-20260521-134c38.
+`MemoryPlanItemStore` in `quarkus.arc.selected-alternatives` (PP-20260521-a36692).
+`ExpiryCleanupJob` disabled in test properties (scheduler-test-isolation.md).
 
-Protocol compliance:
-- **PP-20260521-134c38** — pre-seed all parallel check keys
-- **PP-20260521-a36692** — `MemoryPlanItemStore` in `selected-alternatives`
-- **`scheduler-test-isolation.md`** — disable `ExpiryCleanupJob` in test properties
+Checkpoints:
+1. Start PR review case with PR exceeding approval threshold
+2. WorkItem created by `human-approval` binding (candidateGroups=pr-reviewers)
+3. Set `expiresAt` to past; call `expiryService.checkExpired()`
+4. WorkItem mutated in-place: candidateGroups=pr-leads, status=PENDING, new expiresAt
+5. Case context unchanged (no CONTEXT_CHANGED with case signal fired yet)
+6. Set `expiresAt` to past again; call `expiryService.checkExpired()`
+7. Case context: `humanApproval.status == "sla-breach"` (via `SlaBreachHandler`)
 
 ---
 
@@ -293,11 +248,10 @@ Protocol compliance:
 
 | Issue | What it unblocks |
 |-------|-----------------|
-| engine#325 — `HumanTaskTarget.claimDeadlineHours` | Declarative claim SLA in YAML |
 | engine#326 — failure goal support | Active case FAILED state on SLA breach |
+| engine#325 — `HumanTaskTarget.claimDeadlineHours` | Declarative claim SLA in YAML |
 | engine#327 — dynamic `expiresIn` | Per-instance SLA thresholds from `PreferenceProvider` |
 | work#211 — `WorkItemService.extend()` | `BreachDecision.Extend` execution |
-| platform#24 — `apps-api` / `apps` modules | Prerequisite — must ship before devtown#38 implementation |
 
 ---
 
@@ -305,4 +259,6 @@ Protocol compliance:
 
 Layer 1 gap: `// LAYER 1 GAP: no response SLA — analysis can stall indefinitely with no escalation.`
 
-After Layer 2: every PR review WorkItem has a formal deadline, routes to a named candidate group, and produces an observable case outcome on breach — either escalation to a senior group or case termination with a named reason.
+After Layer 2: every PR review WorkItem has a formal deadline (24h), routes to `pr-reviewers`,
+escalates to `pr-leads` on breach, and signals the case context on terminal failure — observable
+and traceable from case history.
