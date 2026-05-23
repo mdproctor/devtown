@@ -275,7 +275,7 @@ Read these **before designing**, not after. The concern column tells you when ea
 | Content-driven routing | P0 complete (engine#186 merged) ✅ DONE |
 | Parallel check execution | P0 complete ✅ DONE |
 | PR review CasePlanModel (Epic 3) | P0 complete ✅ DONE — devtown#10 shipped 2026-05-19 |
-| Scoped policy preferences | casehub-platform ✅ shipped — `PreferenceProvider` with `Path`-based scope hierarchy and JPA persistence; `Path.root()` pending platform publish (blocks work#212, GE-20260522-9cd6d5) |
+| Scoped policy preferences | casehub-platform ✅ shipped — `PreferenceProvider` with `Path`-based scope hierarchy and JPA persistence; `Path.root()` ✅ DONE (platform#24 closed, work#212 closed 2026-05-22) |
 | Human review WorkItem end-to-end | P0 complete ✅ DONE — casehub-work-adapter wired (devtown#33), e2e test complete (devtown#30 ✅ 2026-05-21) |
 | Trust-weighted assignment | P1 complete (P1.3 — TrustWeightedSelectionStrategy wired) |
 | Merge queue (full) | P1 complete |
@@ -297,7 +297,7 @@ Read these **before designing**, not after. The concern column tells you when ea
 
 ```
 Layer 1: naive Java — vocabulary model, @DefaultBean naive service, REST entry point ✅ (devtown#8, #9, #27)
-Layer 2: + casehub-work — SLA-bounded human review gate with escalation (devtown#38, in progress)
+Layer 2: + casehub-work — SLA-bounded human review gate with escalation (devtown#41, in progress)
 Layer 3: + casehub-qhorus — typed COMMAND/RESPONSE/DONE/DECLINE per reviewer agent interaction
 Layer 4: + casehub-ledger — tamper-evident merge decision audit trail
 Layer 5: + casehub-engine — adaptive paths, CasePlanModel, content-driven PR routing ✅ (devtown#10)
