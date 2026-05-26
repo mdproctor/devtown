@@ -14,10 +14,11 @@ Cross-references:
 
 ---
 
-## Layer 1 — Naive Java (no CaseHub)
+## Layer 1 — Domain baseline (no CaseHub foundation)
 
-**Completed:** Epic 1 (scaffold) 2026-05-08 `10d0d42`; Epic 2 (vocabulary) 2026-05-11 `ccbe944`; Part B (naive service) 2026-05-15 `cca6acc` + `18b22e0`
-**Issues:** casehubio/devtown#8 (Epic 1), casehubio/devtown#9 (Epic 2), casehubio/devtown#27 (Part B — naive service)
+**Completed:** Epic 1 (scaffold) 2026-05-08 `10d0d42`; Epic 2 (vocabulary) 2026-05-11 `ccbe944`; Part B (baseline service) 2026-05-15 `cca6acc` + `18b22e0`
+**Issues:** casehubio/devtown#8 (Epic 1), casehubio/devtown#9 (Epic 2), casehubio/devtown#27 (Part B — baseline service)
+**Navigation:** `git log --grep="#27" --oneline`
 **Design specs:** `docs/specs/2026-05-07-epic1-scaffold-design.md`, `docs/specs/2026-05-08-epic2-domain-model-design.md`, `docs/specs/2026-05-15-layer1-partb-naive-service-design.md`
 **Blog:** `blog/2026-05-11-mdp01-the-vocabulary-problem.md` — narrative on the vocabulary split decision
 **Improvement log:** `docs/PROGRESS.md` DT-001 through DT-006
@@ -36,35 +37,31 @@ Cross-references:
 - `review/src/main/java/io/casehub/devtown/review/PrReviewApplicationService.java` — port interface; CDI displacement boundary for Layer 2+
 - `review/src/main/java/io/casehub/devtown/review/PrPayload.java` — input record: repo, prNumber, headSha, linesChanged
 - `review/src/main/java/io/casehub/devtown/review/PrReviewOutcome.java` — output record: verdict, findings (List<String>)
-- `app/src/main/java/io/casehub/devtown/app/NaivePrReviewService.java` — `@ApplicationScoped @DefaultBean`; 5 gap comments; displaced by Layer 2+
+- `app/src/main/java/io/casehub/devtown/app/PrReviewService.java` — `@ApplicationScoped @DefaultBean`; displaced by Layer 2+
 - `app/src/main/java/io/casehub/devtown/app/PrReviewResource.java` — thin REST dispatcher; `POST /api/reviews`
-- `app/src/test/java/io/casehub/devtown/app/NaivePrReviewServiceTest.java` — plain unit tests; no Quarkus; 3 contract assertions
+- `app/src/test/java/io/casehub/devtown/app/PrReviewServiceTest.java` — plain unit tests; no Quarkus; 3 contract assertions
 
 ### What it shows
 
-Layer 1 has two distinct parts. The first (Epics 1–2, done) establishes the devtown vocabulary — a typed split of what Gastown keeps in a flat namespace. The second (not yet built) shows the naive anti-pattern: direct service calls with no accountability, no SLA, no formal obligation. Together they form the baseline everything else improves upon.
+Layer 1 has two distinct parts. The first (Epics 1–2, done) establishes the devtown vocabulary — a typed split of what Gastown keeps in a flat namespace. The second shows the domain baseline: direct service calls with no accountability, no SLA, no formal obligation. Together they form the baseline everything else improves upon.
 
 **Part A — Vocabulary and scaffold (Epics 1–2, 2026-05-08 to 2026-05-11)**
 
 The domain model is pure Java, no CaseHub dependencies. The vocabulary split is devtown-specific: Gastown's 13 flat capability tags become four typed classes with distinct routing semantics. This is the first architectural decision an adopter faces and the one with the biggest payoff later — once the foundation wires `TrustGateService`, `ActorType`, and `WorkerSelectionStrategy`, the vocabulary is the application-layer expression of what those foundation capabilities can express. See DT-001 through DT-006 in `docs/PROGRESS.md`.
 
-**Part B — Naive PR review service (2026-05-15, devtown#27)**
+**Part B — Baseline PR review service (2026-05-15, devtown#27)**
 
-`NaivePrReviewService` with `@ApplicationScoped @DefaultBean` makes direct stub calls via private methods. Gap comments name every compliance and accountability gap. `PrReviewResource` exposes `POST /api/reviews` so the layer is runnable with a single HTTP call. This is the teaching baseline — each subsequent layer displaces it at the CDI level via a non-`@DefaultBean @ApplicationScoped` implementation.
+`PrReviewService` with `@ApplicationScoped @DefaultBean` makes direct stub calls via private methods. The accountability gaps are documented in LAYER-LOG.md rather than as code comments (see accountability gaps table). `PrReviewResource` exposes `POST /api/reviews` so the layer is runnable with a single HTTP call. This is the teaching baseline — each subsequent layer displaces it at the CDI level via a non-`@DefaultBean @ApplicationScoped` implementation.
 
-### The gap comments
+### Accountability gaps
 
-From `app/src/main/java/io/casehub/devtown/app/NaivePrReviewService.java`:
-
-```java
-// LAYER 1 GAP: no attribution — which agent ran this analysis? No record.
-var securityFindings = analyzeSecurityDirectly(pr);
-// LAYER 1 GAP: no response SLA — analysis can stall indefinitely with no escalation.
-var architectureFindings = reviewArchitectureDirectly(pr);
-// LAYER 1 GAP: no formal DECLINE — if a specialist can't review, it silently fails or errors.
-// LAYER 1 GAP: no tamper-evident audit trail — cannot trace a production incident to this review.
-// LAYER 1 GAP: no trust weighting — a novice and an expert are treated identically.
-```
+| Gap | What breaks | Closed by |
+|-----|-------------|-----------|
+| No attribution | Which agent ran this analysis? No record. | Layer 5 (CaseLedgerEntry per binding dispatch) |
+| No response SLA | Analysis can stall indefinitely with no escalation. | Layer 2 (casehub-work claimDeadline) |
+| No formal DECLINE | If a specialist can't review, it silently fails or errors. | Layer 5 (DECLINED outcome on blackboard) |
+| No tamper-evident audit | Cannot trace a production incident back to this review decision. | Layer 4 (casehub-ledger causedByEntryId chain) |
+| No trust weighting | A novice and an expert are treated identically. | Layer 6 (TrustWeightedSelectionStrategy) |
 
 ### Key wiring
 
@@ -72,13 +69,13 @@ var architectureFindings = reviewArchitectureDirectly(pr);
 `devtown-domain` has zero framework dependencies. All constants, SPI, and default implementation live there. `devtown-app` owns all CDI and Quarkus wiring. This split is mandatory for the tutorial to work — each layer needs to show domain logic independently of the framework.
 
 **`@DefaultBean` displacement pattern.**
-The naive service carries `@DefaultBean`. Each subsequent layer adds an `@ApplicationScoped` implementation in `review` without it — CDI displacement means the new one wins, the naive one stays in the build but is inactive. Both classes coexist; no code is deleted across layers.
+The baseline service carries `@DefaultBean`. Each subsequent layer adds an `@ApplicationScoped` implementation in `review` without it — CDI displacement means the new one wins, the baseline one stays in the build but is inactive. Both classes coexist; no code is deleted across layers.
 
 ```java
-// app/NaivePrReviewService.java — Layer 1, always present
+// app/PrReviewService.java — Layer 1, always present
 @ApplicationScoped
 @DefaultBean  // displaced by any @ApplicationScoped impl without @DefaultBean
-public class NaivePrReviewService implements PrReviewApplicationService {
+public class PrReviewService implements PrReviewApplicationService {
 
 // review/PrReviewCaseService.java — Layer 5+, displaces the above
 @ApplicationScoped  // no @DefaultBean — takes priority
@@ -132,10 +129,10 @@ These were in the original Gastown-derived 13-tag vocabulary and removed. They a
 6. Create `{domain}-app` Maven module — depends on `{domain}-domain`; owns all Quarkus wiring
 7. Add a one-liner `@ApplicationScoped` CDI wrapper in `{domain}-app` extending your registry
 8. Define port interface + DTOs in `{domain}-review` module (pure Java, no CDI, no Quarkus) — Layer 2+ implementations also live here; keeping them out of `{domain}-app` prevents a module dependency cycle
-9. Implement the naive service with `@ApplicationScoped @DefaultBean` in `{domain}-app` — direct stub calls, gap comment per compliance gap (no attribution, no SLA, no formal DECLINE, no audit trail, no trust weighting)
+9. Implement the baseline service with `@ApplicationScoped @DefaultBean` in `{domain}-app` — direct stub calls; document accountability gaps in LAYER-LOG.md (no attribution, no SLA, no formal DECLINE, no audit trail, no trust weighting)
 10. Expose `POST /api/{domain-noun}` via a thin REST resource in `{domain}-app` injecting the port interface — auth-retrofit ready (`@RolesAllowed` can be added to the single method without restructuring)
-11. Boot test: run the existing `@QuarkusTest` to verify CDI discovers the naive service and REST resource
-12. Unit test the naive service: plain `new NaiveService()`, no Quarkus — verify non-null outcome, non-blank verdict, non-null findings list
+11. Boot test: run the existing `@QuarkusTest` to verify CDI discovers the baseline service and REST resource
+12. Unit test the baseline service: plain `new PrReviewService()`, no Quarkus — verify non-null outcome, non-blank verdict, non-null findings list
 
 ---
 
@@ -143,6 +140,7 @@ These were in the original Gastown-derived 13-tag vocabulary and removed. They a
 
 **Completed:** Epic 3 (devtown#10) shipped 2026-05-19
 **Issues:** casehubio/devtown#10 (Epic 3: PR review CasePlanModel — content-driven routing and parallel checks)
+**Navigation:** `git log --grep="#10" --oneline`
 **Design specs:** `docs/specs/2026-05-15-epic3-pr-review-caseplanmodel-design.md`
 **Blog:** `blog/2026-05-19-mdp01-layer-5-case-definition-lands.md`
 **Improvement log:** `docs/PROGRESS.md` — DT entries to be added as improvement decisions are formalised
@@ -150,7 +148,7 @@ These were in the original Gastown-derived 13-tag vocabulary and removed. They a
 **Key files:**
 - `review/src/main/resources/devtown/pr-review.yaml` — YAML CasePlanModel: 9 bindings (4 groups), 3 goals, 9 capabilities
 - `app/src/main/java/io/casehub/devtown/app/PrReviewCaseHub.java` — `@ApplicationScoped extends YamlCaseHub("devtown/pr-review.yaml")`
-- `app/src/main/java/io/casehub/devtown/app/PrReviewCaseService.java` — `@ApplicationScoped implements PrReviewApplicationService` (no `@DefaultBean`); displaces `NaivePrReviewService`
+- `app/src/main/java/io/casehub/devtown/app/PrReviewCaseService.java` — `@ApplicationScoped implements PrReviewApplicationService` (no `@DefaultBean`); displaces `PrReviewService`
 - `review/src/test/java/io/casehub/devtown/review/PrReviewCaseDefinition.java` — fluent DSL factory for binding condition unit tests
 - `review/src/test/java/io/casehub/devtown/review/MapCaseContext.java` — `CaseContext` test helper backed by `Map<String,Object>`
 - `review/src/test/java/io/casehub/devtown/review/PrReviewBindingConditionTest.java` — 28 pure unit tests for all 9 binding conditions; no Quarkus required
@@ -161,7 +159,7 @@ These were in the original Gastown-derived 13-tag vocabulary and removed. They a
 
 Layer 5 introduces casehub-engine into devtown. The PR review case becomes an Adaptive Case Management instance with declared goals and content-driven bindings — security review fires only when code analysis finds security-sensitive code, not from author labels. Multiple checks (style, test coverage, performance) fire simultaneously via the ACM binding system without explicit parallelism declaration. Human approval and CI run in parallel via the WAITING state (total time = max, not sum). The routing logic lives in the case definition YAML and applies consistently to every PR, producing an audit trail of every routing decision.
 
-Contrast with Layer 1: `NaivePrReviewService` makes direct calls with no adaptive routing, no formal obligation, and no audit. Layer 5 displaces it with a `@ApplicationScoped` implementation that opens a `CaseInstance` and lets the engine drive coordination.
+Contrast with Layer 1: `PrReviewService` makes direct calls with no adaptive routing, no formal obligation, and no audit. Layer 5 displaces it with a `@ApplicationScoped` implementation that opens a `CaseInstance` and lets the engine drive coordination.
 
 See `docs/orchestration-advantages.md` §1 (content-driven routing), §2 (parallel human+CI), §3 (automatic parallelism) for the detailed teaching narrative.
 
@@ -183,7 +181,7 @@ Layer 5 closes: attribution (`CaseLedgerEntry` records which binding dispatched 
 
 1. **YAML lives in `review/`, wired in `app/`.** `pr-review.yaml` lives in `review/src/main/resources/devtown/` — Quarkus classloader picks it up from the review module JAR at test time; no copy to `app/` needed. `PrReviewCaseHub` and `PrReviewCaseService` live in `app/` — consistent with platform convention: all CDI wiring in the Tier 3 app module.
 
-2. **`@DefaultBean` displacement.** `PrReviewCaseService @ApplicationScoped` (no `@DefaultBean`) displaces `NaivePrReviewService @DefaultBean` — no explicit CDI configuration required. Both classes remain in the build; Layer 1 is never deleted.
+2. **`@DefaultBean` displacement.** `PrReviewCaseService @ApplicationScoped` (no `@DefaultBean`) displaces `PrReviewService @DefaultBean` — no explicit CDI configuration required. Both classes remain in the build; Layer 1 is never deleted.
 
 3. **Initial CaseContext.** `PrReviewCaseService.review(PrPayload)` builds `{ pr: {...}, policy: {...} }` from the payload and `@ConfigProperty`-injected policy values. The `policy` subtree will be replaced by `PreferenceProvider.resolve(scope).asMap()` when casehub-platform-api ships (parent#26).
 

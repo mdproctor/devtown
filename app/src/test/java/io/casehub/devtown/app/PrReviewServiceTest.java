@@ -5,9 +5,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class NaivePrReviewServiceTest {
+class PrReviewServiceTest {
 
-    private final NaivePrReviewService service = new NaivePrReviewService();
+    private final PrReviewService service = new PrReviewService();
 
     @Test
     void review_returnsNonNullOutcome() {
