@@ -139,9 +139,21 @@ class PrReviewBindingConditionTest {
             assertThat(condition("test-coverage").test(ctx(Map.of(
                 "pr", pr(100), "codeAnalysis", analysis(false, false))))).isTrue();
         }
+        @Test void testCoverage_doesNotFire_whenAlreadyDone() {
+            assertThat(condition("test-coverage").test(ctx(Map.of(
+                "pr", pr(100),
+                "codeAnalysis", analysis(false, false),
+                "testCoverage", Map.of("outcome", "APPROVED"))))).isFalse();
+        }
         @Test void performanceAnalysis_fires_whenAnalysisComplete() {
             assertThat(condition("performance-analysis").test(ctx(Map.of(
                 "pr", pr(100), "codeAnalysis", analysis(false, false))))).isTrue();
+        }
+        @Test void performanceAnalysis_doesNotFire_whenAlreadyDone() {
+            assertThat(condition("performance-analysis").test(ctx(Map.of(
+                "pr", pr(100),
+                "codeAnalysis", analysis(false, false),
+                "performanceAnalysis", Map.of("outcome", "APPROVED"))))).isFalse();
         }
     }
 
