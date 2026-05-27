@@ -1,27 +1,64 @@
-# devtown Agentic Harness — Layer Log
+# devtown — Slice-Indexed Architecture Log (SIAL)
 
-Structured record of what was built at each layer, optimised for LLM consumption. Each entry is the raw material needed to reproduce the layer in a different domain harness. Correlates with blog entries in `blog/`, git history, and GitHub issues.
+This is devtown's LAYER-LOG.md, structured as a SIAL. It serves two purposes:
 
-Entries are ordered for learning, not chronology. Each entry is complete when the layer closes — no placeholders.
+**1 — LLM replication and teaching.** An LLM reading the layer entries should be able
+to reproduce every layer in a different domain harness without asking questions. Each
+entry captures what was built, the non-obvious wiring, what went wrong, and
+domain-agnostic steps to replicate the pattern.
 
-**Build approach:** Layer ordering here is for teaching, not building. The recommended
-pattern is vertical slice first — the thinnest working path through all layers — then
-deepen each layer to production completeness. See `../parent/docs/AGENTIC-HARNESS-GUIDE.md`
-§Build Order. Layers 1 and 5 in this repo were built before this guidance existed; future
-layer work follows vertical slice first.
+**2 — Planning and architectural navigation.** The Vertical Slice Index below shows
+what the system can DO at each milestone, which architectural patterns are in play, and
+how to navigate to the rationale. Enter from a capability (slice) to find the
+implementation detail, or enter from a layer to find the architectural context.
 
-Cross-references:
-- Blog entries: workspace `blog/` (staged; published to mdproctor.github.io/_notes/ via `publish-blog`)
+**Build approach:** Layer ordering is for teaching, not building. Build order follows
+vertical slices (see index below). Layers 1 and 5 were built before this guidance
+existed — the index retrospectively presents the correct planning structure.
+
+**Protocol:** `../parent/docs/protocols/universal/vertical-slice-planning.md`
+
+**Architectural references:**
+- `../parent/docs/ARCHITECTURE.md` — pattern definitions (Hexagonal, Clean, DDD, Event-Driven, CQRS-lite)
+- `../parent/docs/PLATFORM.md` — capability ownership; boundary rules
+- `docs/gastown-casehub-analysis-v2.md` — 32-finding Gastown comparison; phase gates
+- `docs/orchestration-advantages.md` — 7 ACM advantages over workflow engines
+- `../parent/docs/tutorial-strategy.md §7.5` — teaching objectives per layer
+- `../aml/LAYER-LOG.md` — AML reference implementation
+
+**Session artifacts:**
+- Blog entries: workspace `blog/`
 - Design specs: project `docs/specs/`
+- Decision record: workspace `DESIGN.md`
 - Improvement log: `docs/PROGRESS.md` (DT-NNN entries)
-- Architecture comparison: `docs/gastown-casehub-analysis-v2.md`
-- Tutorial teaching objectives: `../parent/docs/tutorial-strategy.md §7.5`
-- AML reference implementation: `../aml/LAYER-LOG.md`
+
+---
+
+## Vertical Slices
+
+| Slice | Capability delivered | Layers | Arch patterns | Status |
+|---|---|---|---|---|
+| S1 | `POST /api/reviews` → CasePlanModel opens → content-driven routing fires → outcome returned | L1, L5 | Clean, Hexagonal, DDD, Event-Driven | ✅ complete |
+| S2 | S1 + human review WorkItem created with SLA; breach escalates when reviewer misses deadline | + L2 | + Strategy, Observer | ✅ complete |
+| S3 | S2 + typed COMMAND dispatched to each specialist agent; DECLINE is a formal scope boundary, not an error | + L3 | + Observer | 🔲 pending |
+| S4 | S3 + tamper-evident ledger entry per case transition; production incident traceable to review decision | + L4 | + Event-Driven (async ledger capture) | 🔲 pending |
+| S5 | S4 + trust-weighted specialist selection from post-merge outcome attestations | + L6 | + Registry, Strategy | 🔲 pending |
+
+**Ordering rationale:**
+- S1 before S2: engine runtime established in S1; WorkItem adapter depends on casehub-work-adapter which chains onto engine events
+- S2 before S3: SLA and human gate (S2) before formal obligation per agent (S3) — obligation tracking assumes the accountability infrastructure is in place
+- S3 before S4: qhorus messaging generates the MessageLedgerEntry chain that makes S4's tamper-evident audit meaningful
+- S4 before S5: trust scoring reads attestation data written by ledger — S4 is a hard dependency for S5
+- S1/S5 built out of teaching order (S5 before S2–S4): engine CasePlanModel was the architectural priority; vertical slice practice accepts this — LAYER-LOG presents teaching order
 
 ---
 
 ## Layer 1 — Domain baseline (no CaseHub foundation)
 
+**Participates in:** S1, S2, S3, S4, S5
+**Architectural pattern:** Clean (dependency rule — pure Java domain with zero framework imports); Hexagonal (PrReviewApplicationService port; adapters in `app/`) — `../parent/docs/ARCHITECTURE.md §Dependency Rule, §Foundation`
+**Key protocols:** `module-tier-structure.md` (three-tier: domain / review / app), `alternative-extension-patterns.md` (@DefaultBean displacement)
+**Design refs:** `docs/specs/2026-05-15-layer1-partb-naive-service-design.md`; `docs/gastown-casehub-analysis-v2.md §DT-001` (vocabulary split rationale)
 **Completed:** Epic 1 (scaffold) 2026-05-08 `10d0d42`; Epic 2 (vocabulary) 2026-05-11 `ccbe944`; Part B (baseline service) 2026-05-15 `cca6acc` + `18b22e0`
 **Issues:** casehubio/devtown#8 (Epic 1), casehubio/devtown#9 (Epic 2), casehubio/devtown#27 (Part B — baseline service)
 **Navigation:** `git log --grep="#27" --oneline`
@@ -142,8 +179,54 @@ These were in the original Gastown-derived 13-tag vocabulary and removed. They a
 
 ---
 
+## Layer 2 — casehub-work (SLA-bounded human review gate)
+
+**Participates in:** S2, S3, S4, S5
+**Architectural pattern:** Hexagonal (WorkItem as port; SlaBreachPolicy SPI); Event-Driven (`@ObservesAsync SlaBreachEvent`, `WorkItemLifecycleEvent → PlanItem` bridge) — `../parent/docs/ARCHITECTURE.md §Foundation, §Orchestration`
+**Key protocols:** `module-tier-structure.md`, `flyway-migration-rules.md` (default datasource for work tables)
+**Design refs:** `DESIGN.md §Layer 2 SLA Breach Policy`; `docs/specs/2026-05-22-layer2-sla-breach-policy-design.md`
+**Completed:** devtown#41 ✅ devtown#42 ✅; full LAYER-LOG entry 🔲 pending engine#326 (failure goal support — needed to close the breach escalation teaching narrative end-to-end)
+**Issues:** casehubio/devtown#41 (work adapter wiring), casehubio/devtown#42 (SLA breach handler wiring test)
+**Navigation:** `git log --grep="#41" --oneline`
+**Blog:** 🔲 at layer close
+
+### What it shows
+
+🔲 Full entry at layer close (blocked on engine#326). Known content below.
+
+Layer 2 adds `casehub-work` to the PR review case. The gap it closes: analysis can stall indefinitely with no escalation. After Layer 2, every human review assignment is a `WorkItem` with a configurable `claimDeadline`. When the reviewer misses the deadline, `SlaBreachPolicy` fires: escalate to a senior reviewer, extend, or fail — governed by the domain policy, not hardcoded logic.
+
+### Accountability gaps closed
+
+| Gap | What breaks | Closed by |
+|-----|-------------|-----------|
+| No response SLA | Human reviewer misses a security finding; no escalation, no record | `WorkItem.claimDeadline` + `SlaBreachPolicy` |
+| No formal human task lifecycle | Review assigned to a group with no individual accountability | `WorkItem` claim → individual assignment → completion record |
+
+### Key wiring
+
+🔲 Full wiring entry at layer close. Key decisions captured in `DESIGN.md §Layer 2 SLA Breach Policy`:
+- `SlaBreachPolicy` SPI placed in `casehub-work-api`, not a new `platform/apps-api` module
+- `BreachDecision` sealed interface — `Fail`, `EscalateTo`, `Extend`, `Chained`
+- Stateless multi-tier escalation via `candidateGroups` — no state serialization needed
+- `DefaultSlaBreachPolicy` lives in `devtown-domain` (pure Java, no Quarkus)
+
+### Gotchas
+
+🔲 At layer close.
+
+### Pattern to replicate
+
+🔲 At layer close.
+
+---
+
 ## Layer 5 — casehub-engine (adaptive routing on code content)
 
+**Participates in:** S1, S2, S3, S4, S5
+**Architectural pattern:** DDD (CasePlanModel — goals, bindings, capabilities); Event-Driven (`@ObservesAsync CaseLifecycleEvent`, `WorkItemLifecycleEvent → PlanItem`); Hexagonal (`YamlCaseHub` as adapter over `CaseHubRuntime` port); CQRS-lite (startCase is command; binding evaluation reads accumulated CaseContext) — `../parent/docs/ARCHITECTURE.md §Orchestration, §Integration`
+**Key protocols:** `case-definition-layers.md` (YAML → schema model → canonical API), `module-tier-structure.md`, `dual-trail-audit-pattern.md` (EventLog + CaseLedgerEntry)
+**Design refs:** `docs/specs/2026-05-15-epic3-pr-review-caseplanmodel-design.md`; `docs/orchestration-advantages.md` §1–3; `docs/gastown-casehub-analysis-v2.md §Phase Gates`
 **Completed:** Epic 3 (devtown#10) shipped 2026-05-19
 **Issues:** casehubio/devtown#10 (Epic 3: PR review CasePlanModel — content-driven routing and parallel checks)
 **Navigation:** `git log --grep="#10" --oneline`
