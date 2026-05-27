@@ -4,6 +4,12 @@ Structured record of what was built at each layer, optimised for LLM consumption
 
 Entries are ordered for learning, not chronology. Each entry is complete when the layer closes — no placeholders.
 
+**Build approach:** Layer ordering here is for teaching, not building. The recommended
+pattern is vertical slice first — the thinnest working path through all layers — then
+deepen each layer to production completeness. See `../parent/docs/AGENTIC-HARNESS-GUIDE.md`
+§Build Order. Layers 1 and 5 in this repo were built before this guidance existed; future
+layer work follows vertical slice first.
+
 Cross-references:
 - Blog entries: workspace `blog/` (staged; published to mdproctor.github.io/_notes/ via `publish-blog`)
 - Design specs: project `docs/specs/`
