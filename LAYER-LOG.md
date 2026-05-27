@@ -42,7 +42,7 @@ correct planning structure.
 
 | Slice | Capability delivered | Layers | Arch patterns | Status |
 |---|---|---|---|---|
-| S1 | `POST /api/reviews` → CasePlanModel opens → content-driven routing fires → outcome returned | L1, L5 | Clean, Hexagonal, DDD, Event-Driven | ✅ complete |
+| S1 | `POST /api/reviews` → CasePlanModel opens → content-driven routing fires → outcome returned | L1, L5 | Vertical Slices, Clean, Hexagonal, DDD, Event-Driven | ✅ complete |
 | S2 | S1 + human review WorkItem created with SLA; breach escalates when reviewer misses deadline | + L2 | + Strategy, Observer | ✅ complete |
 | S3 | S2 + typed COMMAND dispatched to each specialist agent; DECLINE is a formal scope boundary, not an error | + L3 | + Observer | 🔲 pending |
 | S4 | S3 + tamper-evident ledger entry per case transition; production incident traceable to review decision | + L4 | + Event-Driven (async ledger capture) | 🔲 pending |
