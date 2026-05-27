@@ -12,9 +12,13 @@ what the system can DO at each milestone, which architectural patterns are in pl
 how to navigate to the rationale. Enter from a capability (slice) to find the
 implementation detail, or enter from a layer to find the architectural context.
 
-**Build approach:** Layer ordering is for teaching, not building. Build order follows
-vertical slices (see index below). Layers 1 and 5 were built before this guidance
-existed — the index retrospectively presents the correct planning structure.
+**Build approach:** Layer ordering here is for reading — it is the sequence in which
+a developer encounters the layers to understand the system. Building follows vertical
+slices: identify a slice (a user-visible capability), then implement each layer that
+slice requires, one at a time, until the slice is working end-to-end. Layers are the
+implementation unit; slices are the planning and delivery unit. Layers 1 and 5 were
+built before this guidance existed — the index below retrospectively presents the
+correct planning structure.
 
 **Protocol:** `../parent/docs/protocols/universal/vertical-slice-planning.md`
 
