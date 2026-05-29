@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.model.CaseStatus;
-import io.casehub.engine.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.service.WorkItemService;

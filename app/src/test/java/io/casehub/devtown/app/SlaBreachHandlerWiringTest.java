@@ -5,7 +5,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import io.casehub.engine.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.platform.api.path.Path;
 import io.casehub.platform.api.preferences.MapPreferences;
 import io.casehub.work.api.BreachDecision;
