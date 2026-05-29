@@ -100,6 +100,6 @@ public class QhorusPrReviewService implements PrReviewApplicationService {
 
     private Channel findOrCreate(String name) {
         return channelService.findByName(name)
-                .orElseGet(() -> channelService.create(name, ORCHESTRATOR, ChannelSemantic.APPEND, ORCHESTRATOR));
+                .orElseGet(() -> channelService.create(name, null, ChannelSemantic.APPEND, ORCHESTRATOR));
     }
 }

@@ -7,10 +7,8 @@ import jakarta.enterprise.context.ApplicationScoped;
  * Provides a no-op WorkloadProvider implementation for devtown.
  *
  * JpaWorkloadProvider (casehub-work) is excluded via quarkus.arc.exclude-types because it
- * requires a full JPA datasource wired to the work schema. In production, the engine's
- * CasehubWorkloadProvider bridges this; in devtown tests the engine jar does not include
- * that bridge class (moved in a later engine build). This @ApplicationScoped default satisfies
- * the CDI injection point for WorkItemAssignmentService without JPA overhead in tests.
+ * requires a full JPA datasource wired to the work schema.
+ * Satisfies the CDI injection point for WorkItemAssignmentService. Stand-in until devtown#34 adds production JPA wiring.
  */
 @ApplicationScoped
 public class DevtownWorkloadProvider implements WorkloadProvider {
