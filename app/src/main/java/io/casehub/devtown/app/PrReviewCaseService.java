@@ -3,13 +3,17 @@ package io.casehub.devtown.app;
 import io.casehub.devtown.review.PrPayload;
 import io.casehub.devtown.review.PrReviewApplicationService;
 import io.casehub.devtown.review.PrReviewOutcome;
+import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
+@Alternative
+@Priority(2)
 public class PrReviewCaseService implements PrReviewApplicationService {
 
     private static final String VERDICT_CASE_OPENED = "case-opened";
