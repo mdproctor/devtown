@@ -44,7 +44,7 @@ correct planning structure.
 |---|---|---|---|---|
 | S1 | `POST /api/reviews` → CasePlanModel opens → content-driven routing fires → outcome returned | L1, L5 | Vertical Slices, Clean, Hexagonal, DDD, Event-Driven | ✅ complete |
 | S2 | S1 + human review WorkItem created with SLA; breach escalates when reviewer misses deadline | + L2 | + Strategy, Observer | ✅ complete |
-| S3 | S2 + typed COMMAND dispatched to each specialist agent; DECLINE is a formal scope boundary, not an error | + L3 | + Observer | 🔲 pending |
+| S3 | S2 + typed COMMAND dispatched to each specialist agent; DECLINE is a formal scope boundary, not an error | + L3 | + Observer | ✅ complete |
 | S4 | S3 + tamper-evident ledger entry per case transition; production incident traceable to review decision | + L4 | + Event-Driven (async ledger capture) | 🔲 pending |
 | S5 | S4 + trust-weighted specialist selection from post-merge outcome attestations | + L6 | + Registry, Strategy | 🔲 pending |
 
@@ -222,6 +222,119 @@ Layer 2 adds `casehub-work` to the PR review case. The gap it closes: analysis c
 ### Pattern to replicate
 
 🔲 At layer close.
+
+---
+
+## Layer 3 — casehub-qhorus (typed speech-act messaging)
+
+**Participates in:** S3, S4, S5
+**Architectural pattern:** Hexagonal (`ReviewerAgent` as driven port; stubs in `app/`); CDI fanout (`Instance<ReviewerAgent>`); Event-Driven (`MessageLedgerEntry` per speech act) — `../parent/docs/ARCHITECTURE.md §Integration, §Foundation`
+**Key protocols:** `alternative-extension-patterns.md` (`@Alternative @Priority` displacement chain), `module-tier-structure.md`
+**Design refs:** `docs/specs/2026-05-29-layer3-qhorus-messaging-design.md`
+**Completed:** devtown#52 ✅ 2026-05-29 `6711f52`
+**Issues:** casehubio/devtown#52 (Layer 3: qhorus typed messaging)
+**Navigation:** `git log --grep="#52" --oneline`
+**Blog:** `blog/2026-05-29-mdp02-layer3-obligation-explicit.md`
+
+**Key files:**
+- `review/src/main/java/io/casehub/devtown/review/ReviewerOutcome.java` — sealed interface: `Completed(List<String> findings)` + `Declined(String reason)`
+- `review/src/main/java/io/casehub/devtown/review/ReviewerAgent.java` — driven-port interface: `capability()` (ReviewDomain constant) + `handle(PrPayload)`
+- `app/src/main/java/io/casehub/devtown/app/QhorusPrReviewService.java` — `@ApplicationScoped @Alternative @Priority(1)`; `ChannelService` + `MessageService` + `Instance<ReviewerAgent>`
+- `app/src/main/java/io/casehub/devtown/app/agents/SecurityReviewAgent.java` — `Completed` stub; returns rate-limiting finding
+- `app/src/main/java/io/casehub/devtown/app/agents/ArchitectureReviewAgent.java` — `Declined` stub; reason: "distributed transaction outside scope"
+- `app/src/main/java/io/casehub/devtown/app/agents/TestCoverageReviewAgent.java` — `Completed` stub; returns coverage finding
+- `app/src/test/java/io/casehub/devtown/app/PrReviewQhorusLifecycleTest.java` — `@QuarkusTest` 5 tests: channel creation, COMMAND dispatch, DONE discharges commitment, DECLINE recorded, DECLINE content preserved
+
+### What it shows
+
+Layer 3 adds casehub-qhorus typed messaging to the PR review case. Every specialist review assignment becomes a speech act: COMMAND creates a tracked Commitment; DONE discharges it with findings appended; DECLINE is a formal scope refusal with a recorded reason — not a timeout, not an exception.
+
+This replaces Layer 1's direct method invocation with an obligation-tracked, audit-recorded protocol. The message sequence for each specialist — COMMAND → DONE or DECLINE — is structurally identical regardless of whether the agent is in-process (Layer 3 stubs), out-of-process (real Claudony agent), or deferred (future layers). The stubs in `app/agents/` are teaching placeholders; the CDI wiring, channel structure, and commitment lifecycle are production-correct.
+
+Layer 5 (`PrReviewCaseService @Priority(2)`) is the CDI winner in the full build. Layer 3 (`QhorusPrReviewService @Priority(1)`) is present and testable by direct type injection — `@Inject QhorusPrReviewService service` bypasses priority ordering and resolves the concrete type directly, so no test profile is needed.
+
+### Accountability gaps closed
+
+| Gap | What breaks | Closed by |
+|-----|-------------|-----------|
+| No formal obligation per reviewer | Which agent was asked? No record. If they never replied, no record. | COMMAND creates a Commitment; DONE/DECLINE discharge it |
+| No formal scope refusal | A specialist that cannot review silently errors or is skipped | DECLINE is a typed outcome recorded in the channel with reason |
+| No audit of inter-agent communication | Cannot trace what each specialist was asked, or what they returned | Every message recorded as `MessageLedgerEntry` |
+
+**Not closed in Layer 3:**
+- Fixed routing — no adaptive content-driven binding (Layer 5)
+- SLA enforcement per reviewer — no `claimDeadline` on specialist tasks (Layer 2)
+- Tamper-evident review record chained to incidents (Layer 4)
+
+### Key wiring
+
+**CDI displacement chain — three layers, stable priorities.**
+```java
+// Layer 1 — fallback, never displaced
+@ApplicationScoped @DefaultBean
+class PrReviewService implements PrReviewApplicationService
+
+// Layer 3 — present; CDI-inactive in full build; injectable by concrete type in tests
+@ApplicationScoped @Alternative @Priority(1)
+class QhorusPrReviewService implements PrReviewApplicationService
+
+// Layer 5 — ACTIVE in full build; wins CDI selection
+@ApplicationScoped @Alternative @Priority(2)
+class PrReviewCaseService implements PrReviewApplicationService
+```
+`PrReviewCaseService` required `@Alternative @Priority(2)` only when `QhorusPrReviewService` was added. Without `@Alternative` on both beans, CDI treats two non-`@DefaultBean @ApplicationScoped` implementations as ambiguous and fails at startup.
+
+**`ReviewerAgent` as driven port — typed domain parameter, not `Message`.**
+`handle(PrPayload pr)` passes the typed domain object. AML uses `AgentBehaviour.handle(Message command)`. Devtown diverges deliberately: no nullable qhorus primitive leaks into the port interface; the tutorial reader sees a clean domain boundary at the cost of a small API difference. The `Message` parameter becomes meaningful only with real out-of-process agents where the command content must be deserialised — that is a future layer concern.
+
+**Shared `/work` channel per PR — three channels total.**
+All specialist COMMAND/DONE/DECLINE messages share `pr-review-{N}/work`. Two additional channels are created empty: `pr-review-{N}/observe` (Layer 4 audit events) and `pr-review-{N}/oversight` (Layer 2 oversight). Per-specialist channels would require `3 × n` channels and imply three separate oversight gates per PR — semantically wrong and misaligned with Layer 5's one-case-per-PR model. The naming convention establishes normative intent; `allowedTypes` enforcement is a Claudony `NormativeChannelLayout` concern (devtown#54).
+
+**`target=capability()` on COMMAND — the obligor recorded in the Commitment.**
+`MessageDispatch.target` is the `ReviewDomain` constant (`"security-review"`, etc.). `MessageService.dispatch()` auto-creates a Commitment when `type=COMMAND` and `correlationId` is non-null (GE-20260517-5de55b). The target string becomes the Commitment's obligor. DONE discharges it; DECLINE closes it. The internal state transitions (FULFILLED, DECLINED) are qhorus internals — the test-observable form is `commitmentStore.findOpenByObligor(capability, channelId)` returning empty after either response.
+
+**Idempotent channel creation — `findByName()` before `create()`.**
+```java
+private Channel findOrCreate(String name) {
+    return channelService.findByName(name)
+            .orElseGet(() -> channelService.create(name, null, ChannelSemantic.APPEND, ORCHESTRATOR));
+}
+```
+`ChannelService.create()` throws if called twice with the same name (GE-20260529-88b7b6). Pattern: always `findByName` first. `findOrCreate` is not a platform primitive — it is implemented in devtown.
+
+**Per-request correlation — `UUID.randomUUID()` per COMMAND.**
+`correlationId` is generated per COMMAND, not per review request. Each specialist gets its own correlation thread so DONE/DECLINE messages are matched to the correct COMMAND. `inReplyTo=commandResult.messageId()` links the response to the specific COMMAND message in the ledger.
+
+**Test injection by concrete type bypasses CDI priority.**
+`PrReviewQhorusLifecycleTest` injects `QhorusPrReviewService` by concrete type. CDI resolves concrete types directly regardless of `@Alternative`/`@Priority` ordering — these annotations affect injection point resolution, not type lookup. `@Inject QhorusPrReviewService service` always resolves the Layer 3 bean, even in a build where `PrReviewCaseService` is the CDI winner for the `PrReviewApplicationService` injection point.
+
+### Gotchas
+
+- **`ChannelService.create()` is not idempotent — second call with same name throws**
+  - Symptom: `IllegalStateException` or similar on `service.review(pr)` when the test reuses the same PR number across test methods; channels are accumulated in `InMemoryChannelStore` across `@QuarkusTest` methods
+  - Cause: `ChannelService.create()` throws if a channel with that name already exists
+  - Fix: use idempotent `findByName(...).orElseGet(...)` pattern (GE-20260529-88b7b6). Each test method uses a distinct PR number to avoid cross-test contamination — noted in `PrReviewQhorusLifecycleTest` comment
+
+- **`MessageDispatch.builder()` is a no-arg builder with chained setters, not a positional factory**
+  - Symptom: compilation failure or wrong constructor signature when following PLATFORM.md or older documentation
+  - Cause: API documentation describes a positional-args factory form that does not match the shipped builder (GE-20260529-d3d4b6)
+  - Fix: use `MessageDispatch.builder().channelId(...).sender(...).type(...).content(...).correlationId(...).target(...).actorType(...).build()`
+
+- **`@Priority` alone does not resolve CDI ambiguity between non-`@DefaultBean` beans**
+  - Symptom: CDI deployment fails with ambiguous injection point when a second non-`@DefaultBean @ApplicationScoped` bean is added
+  - Cause: CDI uses `@Alternative` to opt in to priority-based disambiguation. `@Priority` without `@Alternative` is not consulted for injection point resolution between equivalent-priority beans
+  - Fix: both competing beans must carry `@Alternative @Priority(N)`. Layer 5's `PrReviewCaseService` needed this annotation added when Layer 3 introduced the second competing implementation (commit `c7fbbff`)
+
+### Pattern to replicate (in another domain)
+
+1. Add sealed outcome type to `{domain}-review`: `Completed(findings)` + `Declined(reason)` — no `Failed` at this layer; stubs don't exercise failure
+2. Add driven-port interface to `{domain}-review`: `{Domain}Agent` with `capability()` (typed constant) and `handle({Input})` (typed domain object, not `Message`)
+3. Implement `@ApplicationScoped @Alternative @Priority(N)` service in `{domain}-app` — inject `ChannelService`, `MessageService`, `Instance<{Domain}Agent>`
+4. Create channel set idempotently: `findByName().orElseGet(create)` — one shared `/work` channel plus empty `/observe` and `/oversight` per coordination unit
+5. Set `target=agent.capability()` on COMMAND — this is the Commitment obligor; DONE and DECLINE do not set `target` (the Commitment is already scoped by `correlationId`)
+6. Use per-COMMAND correlation: `UUID.randomUUID()` per dispatch; `inReplyTo=commandResult.messageId()` on DONE/DECLINE
+7. Add `@Alternative @Priority(N+1)` to the previously-active implementation when adding a new competing bean — CDI requires it
+8. Test with direct-type injection: `@Inject ConcreteService service` bypasses CDI priority; no test profile needed; assign distinct coordination-unit IDs per test method to avoid `InMemoryChannelStore` contamination
 
 ---
 

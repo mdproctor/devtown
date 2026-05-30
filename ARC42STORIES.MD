@@ -4,7 +4,7 @@
 **Date:** 2026-05-28
 **Profile:** [Arc42Stories CaseHub Profile](../parent/docs/arc42stories-casehub-profile.md)
 **Spec:** [Arc42Stories Specification](../parent/docs/arc42stories-spec.md)
-**Status:** Layers 1, 2 (partial), 5 complete. Layers 3, 4, 6 and Chapters 3–5 pending.
+**Status:** Layers 1, 2 (partial), 3, 5 complete. Layers 4, 6 and Chapters 4–5 pending.
 
 ---
 
@@ -135,7 +135,7 @@ CaseHub harness applications integrate foundation modules in a defined progressi
 |---|---|---|---|
 | Domain Baseline | *(none — pure Java)* | L1 | ✅ complete |
 | casehub-work | `casehub-work` | L2 | ✅ code complete |
-| casehub-qhorus | `casehub-qhorus` | L3 | 🔲 pending |
+| casehub-qhorus | `casehub-qhorus` | L3 | ✅ complete |
 | casehub-ledger | `casehub-ledger` | L4 | 🔲 pending |
 | casehub-engine | `casehub-engine` | L5 | ✅ complete |
 | Trust routing | `casehub-ledger` (trust APIs) | L6 | 🔲 pending |
@@ -172,7 +172,7 @@ Each layer adds an `@ApplicationScoped` implementation in `devtown-review`. CDI 
 
 ### Layer Architecture View
 
-Current delivery state — Layers 1, 2, 5. Layers 3, 4, 6 added as Chapters C3, C4, C5 ship.
+Current delivery state — Layers 1, 2, 3, 5. Layers 4, 6 added as Chapters C4, C5 ship.
 
 ```mermaid
 C4Container
@@ -375,7 +375,7 @@ Failure is a fact on the blackboard. Binding conditions evaluate against failure
 
 | Journey | Description | Chapters | Status |
 |---|---|---|---|
-| PR Review Coordination | A submitted pull request is reviewed by specialist agents with formal accountability, human oversight with SLA, and a tamper-evident audit trail that traces any production incident back to the review decision that allowed it | 5 | In progress (C1, C2 complete) |
+| PR Review Coordination | A submitted pull request is reviewed by specialist agents with formal accountability, human oversight with SLA, and a tamper-evident audit trail that traces any production incident back to the review decision that allowed it | 5 | In progress (C1, C2, C3 complete) |
 
 ### §9.2 Chapter Index
 
@@ -391,7 +391,7 @@ flowchart LR
 
   style C1 fill:#90EE90,color:#000
   style C2 fill:#90EE90,color:#000
-  style C3 fill:#D3D3D3,color:#000
+  style C3 fill:#90EE90,color:#000
   style C4 fill:#D3D3D3,color:#000
   style C5 fill:#D3D3D3,color:#000
 ```
@@ -400,13 +400,13 @@ flowchart LR
 |---|---|---|---|---|---|
 | 1 | Case opens and routes | PR Review Coordination | L1, L5 | High, High | ✅ complete |
 | 2 | Human review with SLA | PR Review Coordination | + L2 | Medium | ✅ complete |
-| 3 | Formal agent obligation | PR Review Coordination | + L3 | Low | 🔲 pending |
+| 3 | Formal agent obligation | PR Review Coordination | + L3 | Low | ✅ complete |
 | 4 | Tamper-evident audit | PR Review Coordination | + L4 | Medium | 🔲 pending |
 | 5 | Trust-weighted selection | PR Review Coordination | + L6 | Medium | 🔲 pending |
 
 **Layer × Chapter matrix**
 
-| Layer | C1 ✅ | C2 ✅ | C3 🔲 | C4 🔲 | C5 🔲 |
+| Layer | C1 ✅ | C2 ✅ | C3 ✅ | C4 🔲 | C5 🔲 |
 |---|---|---|---|---|---|
 | L1 Domain Baseline | High | Low | — | — | — |
 | L2 casehub-work | — | Medium | Low | Low | Low |
@@ -522,15 +522,51 @@ C4Component
 
 #### Chapter 3 — Formal Agent Obligation
 
-**Journey:** PR Review Coordination
-**Sequence:** 3 of 5
-**Status:** 🔲 pending (Layer 3 not yet started)
-**Issues:** casehubio/devtown#52 (Layer 3 — qhorus messaging)
-**Navigation:** `git log --grep="#52" --oneline`
+**Journey:** PR Review Coordination | **Sequence:** 3 of 5 | **Status:** ✅ complete
+**Delivered:** 2026-05-29 | **Issues:** casehubio/devtown#52 | **Blog:** `blog/2026-05-29-mdp02-layer3-obligation-explicit.md`
 
-🔲 Full Chapter entry at C3 close. Blocked on Layer 3 (casehub-qhorus) implementation.
+**What this delivers**
+Every specialist review assignment is now a formal obligation. When the orchestrator asks a specialist to review a PR, it dispatches a COMMAND that creates a Commitment in casehub-qhorus. When the specialist finishes, it responds with DONE (findings recorded, Commitment discharged) or DECLINE (scope refusal recorded with reason, Commitment closed). There is no longer a silent failure mode: every agent engagement has a durable record regardless of outcome.
 
-Known scope: typed `COMMAND` dispatched to each specialist agent; `DECLINE` is a formal scope boundary, not an error; commitment lifecycle (OPEN → ACKNOWLEDGED → FULFILLED/DECLINED/FAILED/EXPIRED) tracks each agent obligation.
+This Chapter adds three new speech acts to the observable system state: the COMMAND (was this agent asked?), the response (DONE or DECLINE), and the commitment lifecycle that links them. Each interaction that would previously have been a direct method call with no observable side effects is now an auditable message in a named channel.
+
+**Accountability gaps closed**
+- No formal obligation per reviewer → COMMAND creates a tracked Commitment; DONE/DECLINE discharge it
+- No formal scope refusal → DECLINE is a typed outcome recorded in the channel with reason (not a timeout, not an exception)
+- No audit of inter-agent communication → every message recorded as `MessageLedgerEntry` per speech act
+
+**Not closed in this Chapter**
+- Fixed routing persists (no adaptive content-driven binding — C1 closed this via L5)
+- SLA enforcement per specialist task (Layer 2 / C2 — applies to human reviewers, not specialist agents in Layer 3)
+- Tamper-evident review record chained to incidents (C4)
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Low — `ReviewerOutcome` sealed interface + `ReviewerAgent` driven-port interface added to `devtown-review` |
+| L3 casehub-qhorus | Low — `QhorusPrReviewService @Priority(1)`, 3 agent stubs, 3 channels per PR review, 5 `@QuarkusTest` assertions |
+| L5 casehub-engine | Low — `PrReviewCaseService` receives `@Alternative @Priority(2)` to resolve CDI ambiguity from the new competing bean |
+
+```mermaid
+C4Component
+  title Chapter 3 — Formal Agent Obligation (🟢 new · grey = context only)
+
+  Container_Boundary(b_qhorus, "Layer: casehub-qhorus (L3)") {
+    Component(orchestrator, "🟢 QhorusPrReviewService", "Quarkus CDI @Priority(1)", "Dispatches COMMAND per specialist; collects DONE/DECLINE")
+    Component(channel, "🟢 pr-review-{N}/work channel", "casehub-qhorus", "Shared APPEND channel; all specialist speech acts recorded here")
+    Component(agents, "🟢 SecurityReviewAgent\nArchitectureReviewAgent\nTestCoverageReviewAgent", "Quarkus CDI stubs", "ReviewerAgent impls; Completed(findings) or Declined(reason)")
+  }
+
+  Container_Boundary(b_domain, "Layer: Domain Baseline (L1 — context, extended by L3)") {
+    Component(port, "PrReviewApplicationService", "Port interface (devtown-review)", "CDI displacement boundary — unchanged")
+    Component(outcome, "🟢 ReviewerOutcome", "Sealed interface (devtown-review)", "Completed(List<String>) | Declined(String)")
+    Component(agentport, "🟢 ReviewerAgent", "Port interface (devtown-review)", "capability() + handle(PrPayload)")
+  }
+
+  Rel(orchestrator, channel, "COMMAND / DONE / DECLINE via MessageService")
+  Rel(orchestrator, agents, "invokes handle(PrPayload)")
+  Rel(agents, outcome, "returns")
+```
 
 ---
 
@@ -925,7 +961,7 @@ Per the Arc42Stories spec: only decisions not captured inline elsewhere. Layer-s
 | Production incident | Any PR that merges a bug must have a traceable review decision in the audit chain | C4 delivers (ledger); partially working in C1 (CaseLedgerEntry) |
 | SLA breach | A reviewer missing their deadline triggers automatic escalation within the policy-configured window | C2 delivers (casehub-work) |
 | Content-driven routing | A PR containing cryptographic code routes to security review without author labelling | C1 delivers (casehub-engine binding condition) |
-| Formal DECLINE | A specialist that cannot review the PR produces a structural DECLINE, not a timeout | C1 partial (DECLINED on blackboard); C3 closes fully (qhorus DECLINE speech act) |
+| Formal DECLINE | A specialist that cannot review the PR produces a structural DECLINE, not a timeout | C3 ✅ — DECLINE speech act recorded in channel with reason; Commitment closed (state → DECLINED) |
 | Trust accuracy | Routing quality improves automatically as outcome attestations accumulate | C5 delivers |
 | Zero-framework domain | `devtown-domain` compiles with no Quarkus, no JPA, no reactive types | Enforced from Layer 1 |
 | EU AI Act Art.12 | Tamper-evident record of every agent decision and action | C4 delivers (Merkle chain) |
@@ -940,7 +976,7 @@ Per the Arc42Stories spec: only decisions not captured inline elsewhere. Layer-s
 |---|---|---|
 | `quarkus:build` fails standalone without full dependency stack | Test suite passes; production packaging deferred until claudony + persistence modules present | devtown#31 |
 | `Path.root()` not yet on platform main | `buildBreachContext()` uses `Path.root()` as null fallback; blocks `work#212` until platform publishes it | platform#24 |
-| engine#326 (failure goal support) blocking Layer 2 documentation completion | SLA breach code complete; breach-triggered case failure path deferred | engine#326 |
+| engine#326 (failure goal support) blocking Layer 2 LAYER-LOG completion | SLA breach code complete (devtown#41, #42 ✅); breach-triggered case failure path deferred; L2 §9.4 full entry still pending engine#326 | engine#326 |
 | Bootstrap routing is identical to Gastown | By design — Phase 0. Routing quality improves as attestations accumulate. DT-006 documents the four-phase maturity model. | DT-006 |
 
 ### Technical Debt
