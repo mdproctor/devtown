@@ -70,6 +70,14 @@
       <groupId>io.casehub</groupId>
       <artifactId>casehub-platform</artifactId>
     </dependency>
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-engine-ledger</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-platform-config</artifactId>
+    </dependency>
 
     <!-- Quarkus extensions -->
     <dependency>

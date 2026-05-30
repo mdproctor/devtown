@@ -1,0 +1,23 @@
+# devtown trust routing — blendFactor and quality floors only.
+# threshold / minimumObservations / borderlineMargin come from DevtownCapabilityRegistry.
+# All dimension scores 0.0–1.0 where higher = better (industry-standard trust dimension convention).
+entries:
+  # security-review: trust dominates (0.70 blend); agents missing real issues are excluded
+  - scope: casehubio/devtown/trust-routing/security-review
+    casehubio.devtown.trust-routing.blend-factor: "0.70"
+    casehubio.devtown.trust-routing.floor.review-thoroughness: "0.60"
+
+  # architecture-review: trust dominates; agents missing structural issues are excluded
+  - scope: casehubio/devtown/trust-routing/architecture-review
+    casehubio.devtown.trust-routing.blend-factor: "0.70"
+    casehubio.devtown.trust-routing.floor.review-thoroughness: "0.60"
+
+  # style-review: baseline — workload/trust balanced; no quality floor (low-stakes)
+  - scope: casehubio/devtown/trust-routing/style-review
+    casehubio.devtown.trust-routing.blend-factor: "0.50"
+
+  # merge-executor: trust heavily dominant (0.80 blend); agents with poor precision excluded
+  # precision = TP/(TP+FP); floor 0.70 ensures merge executors rarely block valid merges
+  - scope: casehubio/devtown/trust-routing/merge-executor
+    casehubio.devtown.trust-routing.blend-factor: "0.80"
+    casehubio.devtown.trust-routing.floor.precision: "0.70"
