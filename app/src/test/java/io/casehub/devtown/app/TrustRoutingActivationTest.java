@@ -32,7 +32,7 @@ class TrustRoutingActivationTest {
     }
 
     @Test
-    void styleReviewThresholdProvesYamlLoaded() {
+    void styleReviewThresholdProvesProviderActive() {
         // style-review threshold = 0.50 from registry; DEFAULT.threshold() = 0.70.
         // If DevtownTrustRoutingPolicyProvider isn't wired, we'd get DEFAULT (0.70).
         // Getting 0.50 proves the provider is active and reading from the registry.

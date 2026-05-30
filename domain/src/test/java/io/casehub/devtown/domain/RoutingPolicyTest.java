@@ -47,6 +47,7 @@ class RoutingPolicyTest {
         assertThat(NO_GATE_POLICY.isBootstrap(1)).isFalse();
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     void isBorderlineReturnsTrueWhenWithinMarginAboveThreshold() {
         assertThat(SECURITY_POLICY.isBorderline(0.70)).isTrue();
@@ -54,24 +55,28 @@ class RoutingPolicyTest {
         assertThat(SECURITY_POLICY.isBorderline(0.7499)).isTrue();
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     void isBorderlineReturnsFalseWhenBelowThreshold() {
         assertThat(SECURITY_POLICY.isBorderline(0.69)).isFalse();
         assertThat(SECURITY_POLICY.isBorderline(0.50)).isFalse();
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     void isBorderlineReturnsFalseWhenAtOrAboveThresholdPlusMargin() {
         assertThat(SECURITY_POLICY.isBorderline(0.75)).isFalse();
         assertThat(SECURITY_POLICY.isBorderline(0.90)).isFalse();
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     void isBorderlineReturnsFalseWhenNoMarginConfigured() {
         assertThat(NO_GATE_POLICY.isBorderline(0.51)).isFalse();
         assertThat(NO_GATE_POLICY.isBorderline(0.70)).isFalse();
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     void agentWithSufficientObservationsCanBeBorderline() {
         assertThat(SECURITY_POLICY.isBootstrap(15)).isFalse();

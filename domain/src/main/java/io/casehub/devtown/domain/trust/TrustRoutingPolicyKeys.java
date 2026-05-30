@@ -45,16 +45,18 @@ public final class TrustRoutingPolicyKeys {
             DoublePreference.of(0.0),
             DoublePreference::parse);
 
+    private static final Map<String, PreferenceKey<DoublePreference>> FLOOR_KEYS = Map.of(
+        DevtownTrustDimension.REVIEW_THOROUGHNESS, FLOOR_REVIEW_THOROUGHNESS,
+        DevtownTrustDimension.PRECISION,           FLOOR_PRECISION,
+        DevtownTrustDimension.SCOPE_CALIBRATION,   FLOOR_SCOPE_CALIBRATION
+    );
+
     /**
      * All floor keys keyed by their trust dimension name.
      * Use this to iterate all floors — do not call addFloor manually for each key.
      */
     public static Map<String, PreferenceKey<DoublePreference>> allFloorKeys() {
-        return Map.of(
-            DevtownTrustDimension.REVIEW_THOROUGHNESS, FLOOR_REVIEW_THOROUGHNESS,
-            DevtownTrustDimension.PRECISION,           FLOOR_PRECISION,
-            DevtownTrustDimension.SCOPE_CALIBRATION,   FLOOR_SCOPE_CALIBRATION
-        );
+        return FLOOR_KEYS;
     }
 
     private TrustRoutingPolicyKeys() {}
