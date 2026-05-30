@@ -25,6 +25,13 @@ public record RoutingPolicy(
             && agentObservations < minimumObservations.getAsInt();
     }
 
+    /**
+     * @deprecated Never called by the routing path. The engine uses
+     *   {@link io.casehub.api.spi.routing.TrustRoutingPolicy#isBorderline(double)},
+     *   which has symmetric semantics (Math.abs). This implementation is one-sided
+     *   (score >= threshold && score < threshold + margin) and will be removed.
+     */
+    @Deprecated
     public boolean isBorderline(double trustScore) {
         return borderlineMargin.isPresent() && threshold.isPresent()
             && trustScore >= threshold.getAsDouble()
