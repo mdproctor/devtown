@@ -9,7 +9,7 @@ class DevtownTrustDimensionTest {
     @Test
     void allConstantsNonBlank() {
         assertThat(DevtownTrustDimension.REVIEW_THOROUGHNESS).isNotBlank();
-        assertThat(DevtownTrustDimension.FALSE_POSITIVE_RATE).isNotBlank();
+        assertThat(DevtownTrustDimension.PRECISION).isNotBlank();
         assertThat(DevtownTrustDimension.SCOPE_CALIBRATION).isNotBlank();
     }
 
@@ -17,7 +17,7 @@ class DevtownTrustDimensionTest {
     void allConstantsUnique() {
         assertThat(Set.of(
             DevtownTrustDimension.REVIEW_THOROUGHNESS,
-            DevtownTrustDimension.FALSE_POSITIVE_RATE,
+            DevtownTrustDimension.PRECISION,
             DevtownTrustDimension.SCOPE_CALIBRATION
         )).hasSize(3);
     }
@@ -25,7 +25,7 @@ class DevtownTrustDimensionTest {
     @Test
     void valuesMatchSpec() {
         assertThat(DevtownTrustDimension.REVIEW_THOROUGHNESS).isEqualTo("review-thoroughness");
-        assertThat(DevtownTrustDimension.FALSE_POSITIVE_RATE).isEqualTo("false-positive-rate");
+        assertThat(DevtownTrustDimension.PRECISION).isEqualTo("precision"); // precision = TP/(TP+FP); stored as higher = better, unlike raw FPR
         assertThat(DevtownTrustDimension.SCOPE_CALIBRATION).isEqualTo("scope-calibration");
     }
 }
