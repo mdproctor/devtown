@@ -421,3 +421,78 @@ Layer 5 closes: attribution (`CaseLedgerEntry` records which binding dispatched 
 7. Write binding condition unit tests using a fluent DSL factory (+ `MapCaseContext` helper) in `{domain}-review/src/test/` — no Quarkus required; tests are fast and cover every binding predicate including short-circuit paths
 8. Write a `@QuarkusTest` in `{domain}-app/src/test/` to verify the YAML loads cleanly, with assertions on expected binding count, goal count, and capability count — catches YAML parse errors and classpath issues at test time
 
+---
+
+## Layer 6 — Trust routing (TrustWeightedAgentStrategy + per-capability policy)
+
+**Issue:** devtown#57  
+**Completed:** 2026-05-30  
+**Module:** `app/` (wiring) + `domain/trust/` (preference types and keys)
+
+### What it adds
+
+Layer 6 activates trust-weighted reviewer selection. Before Layer 6, the engine dispatches reviewer agents by load alone — a first-time reviewer and a seasoned expert are indistinguishable. Layer 6 closes this by wiring `TrustWeightedAgentStrategy` from `casehub-engine-ledger` and supplying per-capability routing policies that reflect the risk profile of each review domain.
+
+The gap closed from Layer 1:
+
+```java
+// LAYER 1 GAP: no trust weighting — a novice and an expert are treated identically.
+```
+
+### Architecture
+
+**`casehub-engine-ledger` activates by classpath presence.** Adding the dep to `app/pom.xml` is sufficient. The module ships `TrustWeightedAgentStrategy @Alternative @Priority(1)` (beats `LeastLoadedAgentStrategy @Priority(0)`) and `WorkerDecisionEventCapture` (writes `WorkerDecisionEntry` to the ledger on each worker completion — the input to `TrustScoreJob`).
+
+**`DevtownTrustRoutingPolicyProvider @ApplicationScoped`** (no `@DefaultBean`) displaces `DefaultTrustRoutingPolicyProvider @DefaultBean` automatically. It is the only devtown class added by Layer 6. Reads threshold/minimumObservations/borderlineMargin from `DevtownCapabilityRegistry` (single source of truth) and supplements with blendFactor and quality floors from YAML via `casehub-platform-config`.
+
+**YAML at `src/main/resources/casehub/devtown/trust-routing.yaml`** carries only the engine-specific fields — the three base fields come from the registry. Loaded at startup; runtime override via `casehub.platform.preferences.defaults.*` SmallRye Config (no redeploy).
+
+**Trust maturity Phase 0 applies immediately.** `TrustScoreJob` accumulates trust scores from `WorkerDecisionEntry` attestations (written by `WorkerDecisionEventCapture`). Until Layer 4 (ledger audit trail) wires the attestation path, no scores exist — all agents are BOOTSTRAP and routing is availability-based (Gastown parity). Phase 1+ activates automatically as history accumulates.
+
+### Per-capability routing policies
+
+Threshold/minimumObservations/borderlineMargin are declared in `DevtownCapabilityRegistry.POLICIES`. blendFactor and quality floors are in YAML.
+
+| Capability | threshold | minObs | margin | blendFactor | qualityFloors |
+|---|---|---|---|---|---|
+| `security-review` | 0.70 | 10 | 0.05 | 0.70 | `review-thoroughness ≥ 0.60` |
+| `architecture-review` | 0.65 | 8 | 0.05 | 0.70 | `review-thoroughness ≥ 0.60` |
+| `style-review` | 0.50 | 5 | 0.0 | 0.50 | — |
+| `merge-executor` | 0.80 | 15 | 0.05 | 0.80 | `precision ≥ 0.70` |
+| others | DEFAULT | — | — | DEFAULT | — |
+
+**Trust dimension rename:** `DevtownTrustDimension.FALSE_POSITIVE_RATE` renamed to `PRECISION` (`"precision"`). All trust dimensions are now stored as higher = better — `precision = TP/(TP+FP)` not raw FPR. No production data existed against the old name.
+
+### Key wiring
+
+1. **Single source of truth for base policy fields.** threshold/minimumObservations/borderlineMargin come from `DevtownCapabilityRegistry` — only blendFactor and quality floors are in YAML. This prevents the three base fields from existing in both places and diverging.
+
+2. **`allFloorKeys()` pattern.** `TrustRoutingPolicyKeys.allFloorKeys()` returns a `Map<dimension, PreferenceKey>` static constant. `DevtownTrustRoutingPolicyProvider` iterates it — adding a fourth trust dimension requires only one change (add to `TrustRoutingPolicyKeys`), not two (add key + add `addFloor` call).
+
+3. **Floor sentinel.** `MapPreferences.get()` returns `null` when a key is absent (does NOT fall back to `PreferenceKey.defaultValue`). Floor keys use `DoublePreference.of(0.0)` as a non-null constructor sentinel; the provider's `addFloor()` skips values where `value == null || value.value() <= 0.0`.
+
+4. **Qhorus trust gate not enabled.** `casehub.qhorus.commitment.min-obligor-trust` defaults to 0.0 (disabled). Enabling it requires bootstrap exemption design — tracked in devtown#58. The bootstrap > borderline rule (BOOTSTRAP agents outscore BORDERLINE agents) means new agents can receive merge tasks before building history; devtown#58 addresses this for the merge-executor case.
+
+5. **`RoutingPolicy.isBorderline()` is deprecated.** The domain method is one-sided; the engine's `TrustRoutingPolicy.isBorderline()` is symmetric. The routing path uses `TrustRoutingPolicy` exclusively. Marked `@Deprecated` — tracked for removal.
+
+### Gotchas
+
+- **`casehub-engine-ledger` is not a Quarkus extension** — it does not auto-register Flyway migrations. `quarkus.flyway.qhorus.locations` must include `classpath:db/engine-ledger/migration` explicitly. Engine-ledger ships V2000 (`case_ledger_entry`) and V2001 (`worker_decision_entry`) at that path.
+
+- **`%prod.` prefix on Jandex entry blocks test CDI discovery.** The prod `application.properties` uses `%prod.quarkus.index-dependency.engine-ledger.*`; the test `application.properties` uses the unprefixed form. Without this split, `TrustWeightedAgentStrategy` is not discovered during `@QuarkusTest` augmentation.
+
+- **`style-review` borderlineMargin = 0.0 creates a zero-width borderline zone.** `TrustRoutingPolicy.isBorderline()` is symmetric: `Math.abs(score - 0.50) <= 0.0` is true only when score equals exactly 0.50. Bayesian Beta trust scores are continuous floats — this degenerate case is not realizable in practice. Documented rather than worked around.
+
+### Pattern to replicate (trust routing in another domain)
+
+1. Check `DevtownCapabilityRegistry` — does your domain already have a `CapabilityRegistry` with `RoutingPolicy` entries per capability? If not, create one.
+2. Add `casehub-engine-ledger` compile dep to `{domain}-app/pom.xml`
+3. Add `casehub-platform-config` compile dep to `{domain}-app/pom.xml`
+4. Create `src/main/resources/{org}/{domain}/trust-routing.yaml` with blendFactor and quality floor entries per capability scope (`{org}/{domain}/trust-routing/{capability}`)
+5. Implement `{Domain}TrustRoutingPolicyProvider @ApplicationScoped` in `{domain}-app/`: read threshold/minObs/borderlineMargin from registry, blendFactor and floors from YAML via `PreferenceProvider`
+6. Create `DoublePreference` in `{domain}-domain/trust/` if not already available
+7. Create `TrustRoutingPolicyKeys` in `{domain}-domain/trust/` — follow `allFloorKeys()` pattern
+8. Add `quarkus.flyway.{datasource}.locations` to include `classpath:db/engine-ledger/migration`
+9. Add Jandex entries for `casehub-engine-ledger` in both prod (with `%prod.` prefix) and test properties
+10. Write `{Domain}TrustRoutingActivationTest @QuarkusTest` — verify `TrustWeightedAgentStrategy` is active and at least one non-DEFAULT threshold proves the provider is wired
+
