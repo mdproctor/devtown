@@ -2,7 +2,6 @@ package io.casehub.devtown.app.routing;
 
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
-import io.casehub.devtown.domain.DevtownTrustDimension;
 import io.casehub.devtown.domain.RoutingPolicy;
 import io.casehub.devtown.domain.spi.CapabilityRegistry;
 import io.casehub.devtown.domain.trust.DoublePreference;
@@ -50,6 +49,7 @@ public class DevtownTrustRoutingPolicyProvider implements TrustRoutingPolicyProv
         }
 
         final RoutingPolicy routingPolicy = rp.get();
+        // resolve() returns empty prefs for capabilities with no YAML scope — that is safe and expected
         final Preferences prefs = preferenceProvider.resolve(
             SettingsScope.of("casehubio", "devtown", "trust-routing", capabilityName));
 
@@ -66,17 +66,14 @@ public class DevtownTrustRoutingPolicyProvider implements TrustRoutingPolicyProv
             : TrustRoutingPolicy.DEFAULT.blendFactor();
 
         final Map<String, Double> qualityFloors = new HashMap<>();
-        addFloor(qualityFloors, prefs, TrustRoutingPolicyKeys.FLOOR_REVIEW_THOROUGHNESS,
-            DevtownTrustDimension.REVIEW_THOROUGHNESS);
-        addFloor(qualityFloors, prefs, TrustRoutingPolicyKeys.FLOOR_PRECISION,
-            DevtownTrustDimension.PRECISION);
-        addFloor(qualityFloors, prefs, TrustRoutingPolicyKeys.FLOOR_SCOPE_CALIBRATION,
-            DevtownTrustDimension.SCOPE_CALIBRATION);
+        TrustRoutingPolicyKeys.allFloorKeys().forEach((dimension, key) ->
+            addFloor(qualityFloors, prefs, key, dimension));
 
         return new TrustRoutingPolicy(threshold, minimumObservations, borderlineMargin,
             blendFactor, Map.copyOf(qualityFloors));
     }
 
+    // 0.0 is the no-floor sentinel per TrustRoutingPolicyKeys — skip absent or zero floors
     private static void addFloor(final Map<String, Double> floors, final Preferences prefs,
             final PreferenceKey<DoublePreference> key, final String dimension) {
         final DoublePreference value = prefs.get(key);

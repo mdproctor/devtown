@@ -91,11 +91,13 @@ class DevtownTrustRoutingPolicyProviderTest {
     @Test
     void allSixCapabilitiesResolveWithoutException() {
         var provider = new DevtownTrustRoutingPolicyProvider(EMPTY, registry);
-        assertThat(provider.forCapability(ReviewDomain.CODE_ANALYSIS)).isNotNull();
-        assertThat(provider.forCapability(ReviewDomain.SECURITY_REVIEW)).isNotNull();
-        assertThat(provider.forCapability(ReviewDomain.ARCHITECTURE_REVIEW)).isNotNull();
-        assertThat(provider.forCapability(ReviewDomain.STYLE_REVIEW)).isNotNull();
-        assertThat(provider.forCapability(ReviewDomain.TEST_COVERAGE)).isNotNull();
-        assertThat(provider.forCapability(ReviewDomain.PERFORMANCE_ANALYSIS)).isNotNull();
+        // Capabilities without registry entries return DEFAULT
+        assertThat(provider.forCapability(ReviewDomain.CODE_ANALYSIS)).isEqualTo(TrustRoutingPolicy.DEFAULT);
+        assertThat(provider.forCapability(ReviewDomain.TEST_COVERAGE)).isEqualTo(TrustRoutingPolicy.DEFAULT);
+        assertThat(provider.forCapability(ReviewDomain.PERFORMANCE_ANALYSIS)).isEqualTo(TrustRoutingPolicy.DEFAULT);
+        // Capabilities with registry entries return non-DEFAULT policies
+        assertThat(provider.forCapability(ReviewDomain.SECURITY_REVIEW)).isNotEqualTo(TrustRoutingPolicy.DEFAULT);
+        assertThat(provider.forCapability(ReviewDomain.ARCHITECTURE_REVIEW)).isNotEqualTo(TrustRoutingPolicy.DEFAULT);
+        assertThat(provider.forCapability(ReviewDomain.STYLE_REVIEW)).isNotEqualTo(TrustRoutingPolicy.DEFAULT);
     }
 }

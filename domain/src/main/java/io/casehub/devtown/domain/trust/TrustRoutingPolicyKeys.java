@@ -1,6 +1,8 @@
 package io.casehub.devtown.domain.trust;
 
+import io.casehub.devtown.domain.DevtownTrustDimension;
 import io.casehub.platform.api.preferences.PreferenceKey;
+import java.util.Map;
 
 /**
  * PreferenceKey constants for trust routing YAML configuration.
@@ -42,6 +44,18 @@ public final class TrustRoutingPolicyKeys {
             "floor.scope-calibration",
             DoublePreference.of(0.0),
             DoublePreference::parse);
+
+    /**
+     * All floor keys keyed by their trust dimension name.
+     * Use this to iterate all floors — do not call addFloor manually for each key.
+     */
+    public static Map<String, PreferenceKey<DoublePreference>> allFloorKeys() {
+        return Map.of(
+            DevtownTrustDimension.REVIEW_THOROUGHNESS, FLOOR_REVIEW_THOROUGHNESS,
+            DevtownTrustDimension.PRECISION,           FLOOR_PRECISION,
+            DevtownTrustDimension.SCOPE_CALIBRATION,   FLOOR_SCOPE_CALIBRATION
+        );
+    }
 
     private TrustRoutingPolicyKeys() {}
 }

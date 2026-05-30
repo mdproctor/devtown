@@ -25,7 +25,7 @@ class DevtownTrustDimensionTest {
     @Test
     void valuesMatchSpec() {
         assertThat(DevtownTrustDimension.REVIEW_THOROUGHNESS).isEqualTo("review-thoroughness");
-        assertThat(DevtownTrustDimension.PRECISION).isEqualTo("precision"); // precision = TP/(TP+FP); stored as higher = better, unlike raw FPR
+        assertThat(DevtownTrustDimension.PRECISION).isEqualTo("precision");
         assertThat(DevtownTrustDimension.SCOPE_CALIBRATION).isEqualTo("scope-calibration");
     }
 }
