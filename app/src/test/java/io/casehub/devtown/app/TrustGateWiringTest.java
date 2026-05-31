@@ -63,6 +63,14 @@ class TrustGateWiringTest {
     }
 
     @Test
+    void permitsAgentWithScoreAtFloor() {
+        // At the boundary: score == floor (0.30 == 0.30) must permit (inclusive).
+        String agentId = "at-floor-agent-" + UUID.randomUUID();
+        seedGlobalScore(agentId, 0.30);
+        assertThat(trustPolicy.permits(ctx(agentId))).isTrue();
+    }
+
+    @Test
     void currentScoreReturnsEmptyForUnseenAgent() {
         String agentId = "unseen-agent-" + UUID.randomUUID();
         Optional<Double> score = trustGateService.currentScore(agentId);

@@ -36,6 +36,7 @@ public class DevtownObligorTrustPolicy implements ObligorTrustPolicy {
 
     @Override
     public boolean permits(ObligorTrustContext ctx) {
+        // Resolved per-call — PreferenceProvider caches internally; YAML changes take effect at next call.
         final Preferences prefs = preferenceProvider.resolve(
             SettingsScope.of("casehubio", "devtown", "trust-gate"));
 
