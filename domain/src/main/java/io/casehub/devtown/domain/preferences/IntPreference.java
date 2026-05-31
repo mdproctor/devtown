@@ -1,4 +1,4 @@
-package io.casehub.devtown.domain.sla;
+package io.casehub.devtown.domain.preferences;
 
 import io.casehub.platform.api.preferences.SingleValuePreference;
 import java.util.Objects;
