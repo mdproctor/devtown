@@ -1,5 +1,6 @@
 package io.casehub.devtown.domain.sla;
 
+import io.casehub.devtown.domain.preferences.IntPreference;
 import io.casehub.platform.api.preferences.PreferenceKey;
 
 public final class SlaPreferenceKeys {

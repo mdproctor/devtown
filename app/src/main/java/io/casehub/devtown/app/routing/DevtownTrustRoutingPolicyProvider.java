@@ -4,7 +4,7 @@ import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import io.casehub.devtown.domain.RoutingPolicy;
 import io.casehub.devtown.domain.spi.CapabilityRegistry;
-import io.casehub.devtown.domain.trust.DoublePreference;
+import io.casehub.devtown.domain.preferences.DoublePreference;
 import io.casehub.devtown.domain.trust.TrustRoutingPolicyKeys;
 import io.casehub.platform.api.preferences.PreferenceKey;
 import io.casehub.platform.api.preferences.PreferenceProvider;

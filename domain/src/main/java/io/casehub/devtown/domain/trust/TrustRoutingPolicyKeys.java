@@ -1,6 +1,7 @@
 package io.casehub.devtown.domain.trust;
 
 import io.casehub.devtown.domain.DevtownTrustDimension;
+import io.casehub.devtown.domain.preferences.DoublePreference;
 import io.casehub.platform.api.preferences.PreferenceKey;
 import java.util.Map;
 
