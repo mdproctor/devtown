@@ -1,0 +1,7 @@
+# Global trust gate — minimum trust floor for non-bootstrap agents.
+# Bootstrap agents (no ledger observations) are always exempt.
+# 0.30 is a permissive production floor — a safety net, not a quality filter.
+# Routing (Layer 6) handles per-capability quality; the gate handles the global floor.
+entries:
+  - scope: casehubio/devtown/trust-gate
+    casehubio.devtown.trust-gate.min-obligor-trust: "0.30"
