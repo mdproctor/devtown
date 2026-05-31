@@ -1,4 +1,4 @@
-package io.casehub.devtown.domain.trust;
+package io.casehub.devtown.domain.preferences;
 
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
