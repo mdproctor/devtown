@@ -36,11 +36,11 @@ public class DevtownObligorTrustPolicy implements ObligorTrustPolicy {
 
     @Override
     public boolean permits(ObligorTrustContext ctx) {
-        Preferences prefs = preferenceProvider.resolve(
+        final Preferences prefs = preferenceProvider.resolve(
             SettingsScope.of("casehubio", "devtown", "trust-gate"));
 
-        DoublePreference thresholdPref = prefs.get(TrustGatePreferenceKeys.MIN_OBLIGOR_TRUST);
-        double floor = thresholdPref != null ? thresholdPref.value() : 0.0;
+        final DoublePreference thresholdPref = prefs.get(TrustGatePreferenceKeys.MIN_OBLIGOR_TRUST);
+        final double floor = thresholdPref != null ? thresholdPref.value() : 0.0;
 
         if (floor <= 0.0) return true;          // gate disabled
 
