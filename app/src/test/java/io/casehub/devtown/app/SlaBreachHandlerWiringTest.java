@@ -5,7 +5,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.platform.api.path.Path;
 import io.casehub.platform.api.preferences.MapPreferences;
 import io.casehub.work.api.BreachDecision;
@@ -30,7 +30,7 @@ class SlaBreachHandlerWiringTest {
     @Inject SlaBreachPolicy        policy;
     @Inject PrReviewCaseHub        caseHub;
     @Inject Event<SlaBreachEvent>  breachEvents;
-    @Inject CaseInstanceRepository caseInstanceRepository;
+    @Inject CrossTenantCaseInstanceRepository caseInstanceRepository;
 
     // linesChanged=100 < humanApprovalThreshold=500 — human-approval binding does not fire.
     // All other bindings suppressed by pre-seeding (PP-20260521-134c38).

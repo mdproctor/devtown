@@ -5,7 +5,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemStatus;
 import io.casehub.work.runtime.repository.WorkItemStore;
@@ -25,7 +25,7 @@ class SlaBreachLifecycleTest {
     @Inject WorkItemQueries        workItemQueries;
     @Inject WorkItemStore          workItemStore;
     @Inject ExpiryLifecycleService expiryService;
-    @Inject CaseInstanceRepository caseInstanceRepository;
+    @Inject CrossTenantCaseInstanceRepository caseInstanceRepository;
 
     @Test
     void twoTierSlaBreach_signalsCaseOnTerminalFail() throws Exception {

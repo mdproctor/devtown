@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.model.CaseStatus;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.service.WorkItemService;
@@ -26,7 +26,7 @@ class HumanApprovalLifecycleTest {
     @Inject PrReviewCaseHub          caseHub;
     @Inject WorkItemQueries          workItemQueries;
     @Inject WorkItemService          workItemService;
-    @Inject CaseInstanceRepository   caseInstanceRepository;
+    @Inject CrossTenantCaseInstanceRepository caseInstanceRepository;
     @Inject WorkItemCompletionCapture completionCapture;
     @Inject WorkItemLifecycleAdapter  lifecycleAdapter;
 
