@@ -338,22 +338,22 @@ References to governing protocols rather than duplicating their content:
 
 ### Anti-patterns
 
-These have either occurred in devtown or are the most likely mistakes when extending it. All three are symptoms of the same root cause: trying to make multiple layer implementations coexist in one deployment rather than using CDI displacement correctly.
+Root cause for all three: trying to make multiple layer implementations coexist rather than using CDI displacement correctly.
 
 - **CDI priority gymnastics to force layer coexistence**
-  - Symptom: `AmbiguousResolutionException` when two `@ApplicationScoped` implementations of `PrReviewApplicationService` exist; resolved by adding `@Alternative @Priority(N)` to one
-  - Cause: the new layer implementation wasn't intended to displace the previous one — both were meant to be "present." This is not a production state.
-  - Fix: only one non-`@DefaultBean` implementation of a port interface belongs in production at any layer. The `@DefaultBean` baseline is the fallback; one `@ApplicationScoped` without `@DefaultBean` displaces it. Remove the `@Alternative @Priority` and decide which implementation is active.
+  - **Symptom:** `AmbiguousResolutionException` when two `@ApplicationScoped` implementations of `PrReviewApplicationService` exist; resolved by adding `@Alternative @Priority(N)` to one
+  - **Cause:** the new layer implementation wasn't intended to displace the previous one — both were meant to be "present." This is not a production state.
+  - **Fix:** remove `@Alternative @Priority`. Only one non-`@DefaultBean` implementation of a port interface belongs in production at any layer. The `@DefaultBean` baseline is the fallback; one `@ApplicationScoped` without `@DefaultBean` displaces it. Decide which implementation is active.
 
 - **`@Unremovable` to keep a dormant layer bean alive**
-  - Symptom: Quarkus bean removal eliminates a layer implementation because nothing injects it in the current build; `@Unremovable` added to suppress the warning
-  - Cause: the bean exists only because a previous layer's implementation is still in the build. Quarkus is correctly signalling it has no production role.
-  - Fix: if Quarkus wants to remove a bean, that is the right signal. The `@DefaultBean` displacement pattern means earlier layer implementations stay in the build but are legitimately superseded — they do not need `@Unremovable`.
+  - **Symptom:** Quarkus bean removal eliminates a layer implementation because nothing injects it in the current build; `@Unremovable` added to suppress the warning
+  - **Cause:** the bean exists only because a previous layer's implementation is still in the build. Quarkus is correctly signalling it has no production role.
+  - **Fix:** remove `@Unremovable`. The `@DefaultBean` displacement pattern means earlier layer implementations stay in the build but are legitimately superseded — they do not need `@Unremovable`. If Quarkus wants to remove a bean, that is the right signal.
 
 - **A new port implementation without displacing the previous one**
-  - Symptom: two non-`@DefaultBean @ApplicationScoped` implementations of `PrReviewApplicationService` in the same deployment
-  - Cause: a new layer implementation was added without recognising that the previous layer's implementation (which had already displaced the `@DefaultBean` baseline) is still active
-  - Fix: audit the CDI displacement chain before adding any new port implementation. At any given layer, exactly one non-`@DefaultBean` implementation should be active. The chain is: `@DefaultBean` baseline (L1) ← displaced by first `@ApplicationScoped` impl (L5 currently). Adding L3's impl means L5's must be removed or the new one must be the sole active implementation.
+  - **Symptom:** two non-`@DefaultBean @ApplicationScoped` implementations of `PrReviewApplicationService` in the same deployment
+  - **Cause:** a new layer implementation was added without recognising that the previous layer's implementation (which had already displaced the `@DefaultBean` baseline) is still active
+  - **Fix:** audit the CDI displacement chain before adding any new port implementation. The chain: `@DefaultBean` baseline (L1) ← displaced by first `@ApplicationScoped` impl (L5). Adding L3's impl means L5's must be removed or the new one must be the sole active implementation. At any layer, exactly one non-`@DefaultBean` implementation is active.
 
 ### Security
 
@@ -612,15 +612,20 @@ Known scope: `TrustWeightedSelectionStrategy` replaces availability routing; pos
 
 #### What it adds
 
-Layer 1 has two distinct parts. The first (Epics 1–2) establishes the devtown vocabulary — a typed split of what Gastown keeps in a flat namespace. The second (Epic 3 Part B) shows the domain baseline: direct service calls with no accountability, no SLA, no formal obligation. Together they form the baseline everything else improves upon.
+**Before:** Gastown — 13 flat capability tags in a shared namespace. `PrReviewService @DefaultBean` makes direct stub calls with no routing logic, no attribution, no formal obligation.
 
-**Part A — Vocabulary and scaffold (Epics 1–2)**
+**After (Part A — vocabulary):** 4 typed vocabulary classes with distinct routing semantics:
 
-The domain model is pure Java, no CaseHub dependencies. The vocabulary split is devtown's first and most impactful architectural decision: Gastown's 13 flat capability tags become four typed classes with distinct routing semantics. `security-review` is analytical (trust-scored on quality). `ci-runner` is operational (trust-scored on outcome). `human-decision:pr-approval` is a formal accountability event (WorkItem lifecycle). `human-oversight:routing-review` is system-level oversight (triggered by routing uncertainty). These four categories route through different foundation infrastructure — conflating them in a flat namespace loses the semantic distinction before the foundation ever sees it. See DT-001 through DT-006 in `docs/PROGRESS.md`.
+- **`ReviewDomain`** — 6 analytical capabilities (`security-review`, `architecture-review`, etc.); trust-scored on review quality
+- **`AgentQualification`** — 2 operational capabilities (`ci-runner`, `merge-executor`); trust-scored on outcome reliability
+- **`HumanDecision`** — formal PR accountability event (`human-decision:pr-approval`); WorkItem lifecycle
+- **`HumanOversight`** — system-level routing oversight (`human-oversight:routing-review`); triggered by routing uncertainty
 
-**Part B — Baseline PR review service**
+Conflating these in a flat namespace loses routing semantics before the foundation sees them. Full rationale: DT-001–DT-006 in `docs/PROGRESS.md`.
 
-`PrReviewService @DefaultBean` makes direct stub calls via private methods. The five accountability gaps are documented in this LAYER-LOG (not as code comments) — they are the comparison baseline that each subsequent layer closes. `PrReviewResource` exposes `POST /api/reviews` so the layer is runnable from a single HTTP call. `PrPayload` and `PrReviewOutcome` are defined as records in `devtown-review` — not `devtown-app`.
+**After (Part B — baseline service):** `PrReviewService @DefaultBean` makes direct stub calls via private methods. Five accountability gaps established as the documented baseline — each subsequent layer closes one or more (see Accountability gaps table). `PrReviewResource` exposes `POST /api/reviews` — runnable from a single HTTP call. `PrPayload` and `PrReviewOutcome` live in `devtown-review`, not `devtown-app`.
+
+Not closed here: all five accountability gaps (attribution, SLA, DECLINE, tamper-evident audit, trust weighting).
 
 #### Accountability gaps closed
 
@@ -751,9 +756,18 @@ Initially written as a concrete method in `DevtownCapabilityRegistry` calling th
 
 #### What it adds
 
-🔲 Full narrative at layer close (blocked on engine#326 — failure goal support needed to demonstrate breach-triggered case failure end-to-end).
+**Before:** Human review can stall indefinitely — no deadline, no escalation path, no individual accountability.
+**After:** Every human review assignment is a `WorkItem` with a configurable `claimDeadline`. When the reviewer misses the deadline, `SlaBreachPolicy` fires.
 
-**Known scope:** Layer 2 adds `casehub-work` to the PR review case. The gap it closes: analysis can stall indefinitely with no escalation. After Layer 2, every human review assignment is a `WorkItem` with a configurable `claimDeadline`. When the reviewer misses the deadline, `SlaBreachPolicy` fires: escalate to a senior reviewer, extend, or fail — governed by the domain policy.
+What this layer adds:
+
+- **`WorkItem` with `claimDeadline`** — SLA-bounded human review task; deadline configurable per assignment
+- **`SlaBreachPolicy`** — fires on deadline expiry; options: `Fail`, `EscalateTo(senior reviewer)`, `Extend`, `Chained`
+- **Individual accountability** — `WorkItem` claim → individual assignment → completion record (not group assignment)
+
+Not closed here: attribution (L5), content-driven routing (L5), tamper-evident audit (L4), trust weighting (L6).
+
+🔲 Full comparative narrative at layer close (blocked on engine#326 — breach-triggered case failure not yet demonstrable end-to-end).
 
 #### Accountability gaps closed
 
@@ -828,19 +842,18 @@ When the escalated `WorkItem` expires, `ExpiryLifecycleService` calls `onBreach(
 
 #### What it adds
 
-Layer 5 introduces casehub-engine into devtown. The PR review case becomes an Adaptive Case Management instance with declared goals and content-driven bindings — security review fires only when code analysis finds security-sensitive code, not from author labels. Multiple checks (style, test coverage, performance) fire simultaneously via the ACM binding system without explicit parallelism declaration. Human approval and CI run in parallel via the WAITING state (total time = max, not sum).
+**Before:** `PrReviewService @DefaultBean` (L1) — direct stub calls, fixed routing, no attribution, no formal DECLINE.
+**After:** `PrReviewCaseService @ApplicationScoped` opens a `CaseInstance` per PR. The engine drives coordination via `pr-review.yaml`.
 
-Contrast with Layer 1: `PrReviewService` makes direct calls with no adaptive routing, no formal obligation, and no audit. Layer 5 displaces it with an `@ApplicationScoped` implementation that opens a `CaseInstance` and lets the engine drive coordination.
+What this layer adds:
 
-See `docs/orchestration-advantages.md` §1 (content-driven routing), §2 (parallel human+CI), §3 (automatic parallelism) for the detailed architectural rationale.
+- **Content-driven routing** — security review fires only when `analysisFindings` contains security-sensitive code, not from author labels
+- **Implicit parallelism** — multiple checks (style, test coverage, performance) fire simultaneously without explicit declaration
+- **Parallel human + CI** — WAITING state; total time is `max(human, CI)`, not their sum
+- **Formal DECLINE** — DECLINED outcome on blackboard triggers re-routing; no silent failure mode
+- **Attribution** — `CaseLedgerEntry` records which binding dispatched which agent
 
-**Gap comments that Layer 5 closes** (from `PrReviewService.java`):
-```
-LAYER 1 GAP: no attribution — which agent ran this analysis? No record.
-LAYER 1 GAP: no formal DECLINE — if a specialist can't review, it silently fails or errors.
-LAYER 1 GAP: no tamper-evident audit trail — cannot trace a production incident to this review.
-```
-Not closed by Layer 5: no response SLA (Layer 2), no trust weighting (Layer 6).
+Not closed here: response SLA (L2), trust weighting (L6).
 
 #### Accountability gaps closed
 
