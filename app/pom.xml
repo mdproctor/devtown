@@ -74,6 +74,11 @@
       <groupId>io.casehub</groupId>
       <artifactId>casehub-engine-ledger</artifactId>
     </dependency>
+    <!-- Actor state view — GET /actors/{actorId}/state -->
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-engine-actor-state</artifactId>
+    </dependency>
     <dependency>
       <groupId>io.casehub</groupId>
       <artifactId>casehub-platform-config</artifactId>

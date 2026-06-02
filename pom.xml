@@ -64,6 +64,13 @@
         <version>${casehub.version}</version>
       </dependency>
 
+      <!-- casehub-engine-actor-state — GET /actors/{actorId}/state unified actor workload view -->
+      <dependency>
+        <groupId>io.casehub</groupId>
+        <artifactId>casehub-engine-actor-state</artifactId>
+        <version>${casehub.version}</version>
+      </dependency>
+
       <!-- casehub-engine-persistence-memory — in-memory SPI impls including SubCaseGroupRepository -->
       <dependency>
         <groupId>io.casehub</groupId>
