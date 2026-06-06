@@ -63,7 +63,7 @@ class CaseMemoryIntegrationTest {
      * 5. Start a second case for the same contributor
      * 6. Verify recall returns stored facts
      */
-    @Disabled("Async tenancy: InMemoryMemoryStore.assertTenant() requires CurrentPrincipal, unavailable in @ObservesAsync threads. Track in follow-up issue.")
+    @Disabled("CaseLedgerEventCapture fails on CaseLifecycleEvent — LEDGER_SUBJECT_SEQUENCE table missing in H2. Async tenancy is NOT the issue (see AsyncTenantAssertionTest). Track in devtown#69.")
     @Test
     void fullRoundTrip_emitThenRecall() throws Exception {
         // Phase 1: Start case with full context (including contributor and changedPaths).
