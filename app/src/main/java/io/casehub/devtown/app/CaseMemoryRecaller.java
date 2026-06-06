@@ -1,6 +1,7 @@
 package io.casehub.devtown.app;
 
 import io.casehub.devtown.domain.memory.DevtownMemoryDomain;
+import io.casehub.devtown.domain.memory.MemoryRecallKeys;
 import io.casehub.devtown.domain.memory.ModulePathNormalizer;
 import io.casehub.devtown.review.MemoryContext;
 import io.casehub.devtown.review.PrPayload;
@@ -9,6 +10,9 @@ import io.casehub.platform.api.memory.CaseMemoryStore;
 import io.casehub.platform.api.memory.Memory;
 import io.casehub.platform.api.memory.MemoryOrder;
 import io.casehub.platform.api.memory.MemoryQuery;
+import io.casehub.platform.api.preferences.PreferenceProvider;
+import io.casehub.platform.api.preferences.Preferences;
+import io.casehub.platform.api.preferences.SettingsScope;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -30,29 +34,43 @@ import java.util.List;
 public class CaseMemoryRecaller {
 
     private static final Logger LOG = Logger.getLogger(CaseMemoryRecaller.class);
+    private static final SettingsScope RECALL_SCOPE =
+        SettingsScope.of("casehubio", "devtown", "memory-recall");
+
+    private final Instance<CaseMemoryStore> store;
+    private final CurrentPrincipal principal;
+    private final PreferenceProvider preferenceProvider;
 
     @Inject
-    Instance<CaseMemoryStore> store;
+    public CaseMemoryRecaller(final Instance<CaseMemoryStore> store,
+                              final CurrentPrincipal principal,
+                              final PreferenceProvider preferenceProvider) {
+        this.store = store;
+        this.principal = principal;
+        this.preferenceProvider = preferenceProvider;
+    }
 
-    @Inject
-    CurrentPrincipal principal;
-
-    public MemoryContext recall(PrPayload pr) {
+    public MemoryContext recall(final PrPayload pr) {
         if (!store.isResolvable()) {
             return MemoryContext.EMPTY;
         }
 
         var s = store.get();
         try {
+            Preferences prefs = preferenceProvider.resolve(RECALL_SCOPE);
+            int contributorLimit = prefs.getOrDefault(MemoryRecallKeys.CONTRIBUTOR_LIMIT).value();
+            int codeAreaLimit = prefs.getOrDefault(MemoryRecallKeys.CODE_AREA_LIMIT).value();
+            int timeWindowDays = prefs.getOrDefault(MemoryRecallKeys.TIME_WINDOW_DAYS).value();
+
             String tenantId = principal.tenancyId();
-            Instant since = Instant.now().minus(Duration.ofDays(90));
+            Instant since = Instant.now().minus(Duration.ofDays(timeWindowDays));
 
             List<Memory> contributorHistory = s.query(
                 MemoryQuery.forEntity(
                     "contributor:" + pr.contributor(),
                     DevtownMemoryDomain.SOFTWARE_REVIEW,
                     tenantId)
-                .withLimit(10)
+                .withLimit(contributorLimit)
                 .withSince(since)
                 .withOrder(MemoryOrder.CHRONOLOGICAL)
             );
@@ -70,7 +88,7 @@ public class CaseMemoryRecaller {
                         moduleIds,
                         DevtownMemoryDomain.SOFTWARE_REVIEW,
                         tenantId)
-                    .withLimit(15)
+                    .withLimit(codeAreaLimit)
                     .withSince(since)
                     .withOrder(MemoryOrder.RELEVANCE)
                     .withQuestion("review history for "
