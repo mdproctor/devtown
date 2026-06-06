@@ -88,6 +88,45 @@ class DevtownTrustRoutingPolicyProviderTest {
         assertThat(policy.qualityFloors()).doesNotContainKey("precision");
     }
 
+    // === Bootstrap escalation: capabilities with fallbackType require escalation ===
+
+    @Test
+    void mergeExecutorRequiresBootstrapEscalation() {
+        var provider = new DevtownTrustRoutingPolicyProvider(EMPTY, registry);
+        TrustRoutingPolicy policy = provider.forCapability(AgentQualification.MERGE_EXECUTOR);
+        assertThat(policy.bootstrapEscalationRequired()).isTrue();
+    }
+
+    @Test
+    void securityReviewRequiresBootstrapEscalation() {
+        var provider = new DevtownTrustRoutingPolicyProvider(EMPTY, registry);
+        TrustRoutingPolicy policy = provider.forCapability(ReviewDomain.SECURITY_REVIEW);
+        assertThat(policy.bootstrapEscalationRequired()).isTrue();
+    }
+
+    @Test
+    void architectureReviewRequiresBootstrapEscalation() {
+        var provider = new DevtownTrustRoutingPolicyProvider(EMPTY, registry);
+        TrustRoutingPolicy policy = provider.forCapability(ReviewDomain.ARCHITECTURE_REVIEW);
+        assertThat(policy.bootstrapEscalationRequired()).isTrue();
+    }
+
+    @Test
+    void styleReviewDoesNotRequireBootstrapEscalation() {
+        var provider = new DevtownTrustRoutingPolicyProvider(EMPTY, registry);
+        TrustRoutingPolicy policy = provider.forCapability(ReviewDomain.STYLE_REVIEW);
+        assertThat(policy.bootstrapEscalationRequired()).isFalse();
+    }
+
+    @Test
+    void unknownCapabilityDefaultDoesNotRequireBootstrapEscalation() {
+        var provider = new DevtownTrustRoutingPolicyProvider(EMPTY, registry);
+        TrustRoutingPolicy policy = provider.forCapability("unknown-capability");
+        assertThat(policy.bootstrapEscalationRequired()).isFalse();
+    }
+
+    // === Resolution: all capabilities resolve without exception ===
+
     @Test
     void allSixCapabilitiesResolveWithoutException() {
         var provider = new DevtownTrustRoutingPolicyProvider(EMPTY, registry);

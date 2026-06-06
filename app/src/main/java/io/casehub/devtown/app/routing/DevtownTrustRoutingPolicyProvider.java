@@ -70,7 +70,7 @@ public class DevtownTrustRoutingPolicyProvider implements TrustRoutingPolicyProv
             addFloor(qualityFloors, prefs, key, dimension));
 
         return new TrustRoutingPolicy(threshold, minimumObservations, borderlineMargin,
-            blendFactor, Map.copyOf(qualityFloors), false);
+            blendFactor, Map.copyOf(qualityFloors), routingPolicy.fallbackType().isPresent());
     }
 
     // 0.0 is the no-floor sentinel per TrustRoutingPolicyKeys — skip absent or zero floors

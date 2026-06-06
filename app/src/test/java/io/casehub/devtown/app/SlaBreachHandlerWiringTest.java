@@ -14,7 +14,7 @@ import io.casehub.work.api.BreachedTask;
 import io.casehub.work.api.SlaBreachContext;
 import io.casehub.work.api.SlaBreachPolicy;
 import io.casehub.work.runtime.event.SlaBreachEvent;
-import io.casehub.workadapter.CallerRef;
+import io.casehub.workadapter.PlanItemCallerRef;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
@@ -58,7 +58,7 @@ class SlaBreachHandlerWiringTest {
         UUID caseId = caseHub.startCase(MINIMAL_CTX).toCompletableFuture().get(5, SECONDS);
         assertThat(caseId).isNotNull();
 
-        String callerRef = CallerRef.encode(caseId, "human-approval");
+        String callerRef = PlanItemCallerRef.encode(caseId, "human-approval");
         var task = new BreachedTask(UUID.randomUUID(), callerRef,
                                     "PR approval", Set.of("pr-leads"));
         var ctx  = new SlaBreachContext(BreachType.CLAIM_EXPIRED, task,
