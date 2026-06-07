@@ -869,6 +869,7 @@ Not closed by Layer 5: no response SLA (Layer 2), no trust weighting (Layer 6).
   - Symptom: `@QuarkusTest` fails with `ClassSelector resolution failed` — looks like a class-loading problem, not a CDI error
   - Cause: `casehub-ledger` provides a Panache `ReactiveLedgerEntryRepository` requiring a real datasource; `casehub-engine-testing` provides engine repos but not ledger repos; CDI cannot satisfy the injection point
   - Fix: add `@ApplicationScoped InMemoryLedgerEntryRepository` stub to `{domain}-app/src/test/`. Tracked in garden: GE-20260519-e13b01.
+  - Note: this stub solves the **reactive** CDI injection (`ReactiveLedgerEntryRepository`). The **blocking** write chain (`CaseLedgerEntryRepository → JpaLedgerEntryRepository → LedgerSequenceAllocator`) requires `casehub.ledger.enabled=false` in addition — see step 8 above. Tracked in engine#436.
 
 - **Merge binding requires a `securitySensitive == false` short-circuit**
   - Symptom: non-security PRs never satisfy the merge condition — `securityReview` never appears in context, so `securityReview.outcome` predicate evaluates false or throws
@@ -892,8 +893,9 @@ Not closed by Layer 5: no response SLA (Layer 2), no trust weighting (Layer 6).
 5. Define scoped policy values via `@ConfigProperty` for now — replace with `PreferenceProvider.resolve(scope).asMap()` when casehub-platform-api ships (parent#26)
 6. Add `casehub-engine` (runtime) and `casehub-engine-testing` (test scope) to `{domain}-app/pom.xml`
 7. Add `InMemoryLedgerEntryRepository` stub to `{domain}-app/src/test/` if `casehub-ledger` runtime is on the classpath (see GE-20260519-e13b01)
-8. Write binding condition unit tests using a fluent DSL factory (+ `MapCaseContext` helper) in `{domain}-review/src/test/` — no Quarkus required; tests are fast and cover every binding predicate including short-circuit paths (especially: conditions that reference a key only present when a prior binding fires)
-9. Write a `@QuarkusTest` in `{domain}-app/src/test/` to verify the YAML loads cleanly, with assertions on expected binding count, goal count, and capability count — catches YAML parse errors and classpath issues at test time
+8. Set `casehub.ledger.enabled=false` in test `application.properties` if `casehub-engine-ledger` is on the classpath — without this, `CaseLedgerEventCapture` calls `JpaLedgerEntryRepository.save()` → `LedgerSequenceAllocator.nextSequenceNumber()` → `MERGE INTO ledger_subject_sequence`, which fails in H2 `drop-and-create` mode (the table is created by Flyway, not Hibernate). The `InMemoryLedgerEntryRepository` stub (step 7) solves reactive CDI resolution; `casehub.ledger.enabled=false` solves the blocking write chain — both are needed.
+9. Write binding condition unit tests using a fluent DSL factory (+ `MapCaseContext` helper) in `{domain}-review/src/test/` — no Quarkus required; tests are fast and cover every binding predicate including short-circuit paths (especially: conditions that reference a key only present when a prior binding fires)
+10. Write a `@QuarkusTest` in `{domain}-app/src/test/` to verify the YAML loads cleanly, with assertions on expected binding count, goal count, and capability count — catches YAML parse errors and classpath issues at test time
 
 ---
 

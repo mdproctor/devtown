@@ -12,7 +12,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
-import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,7 +73,7 @@ class TrustGateWiringTest {
     @Test
     void currentScoreReturnsEmptyForUnseenAgent() {
         String agentId = "unseen-agent-" + UUID.randomUUID();
-        Optional<Double> score = trustGateService.currentScore(agentId);
+        OptionalDouble score = trustGateService.currentScore(agentId);
         assertThat(score).isEmpty();
     }
 }

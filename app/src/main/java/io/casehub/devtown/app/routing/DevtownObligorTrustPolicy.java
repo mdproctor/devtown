@@ -15,7 +15,7 @@ import jakarta.inject.Inject;
  * Devtown trust gate — global trust floor for non-bootstrap agents.
  *
  * <p>Bootstrap agents (no ledger observations — {@link TrustGateService#currentScore} returns
- * {@link java.util.Optional#empty()}) are always permitted. Only agents with a recorded score
+ * {@link java.util.OptionalDouble#empty()}) are always permitted. Only agents with a recorded score
  * below the configured floor are denied.
  *
  * <p>{@code @ApplicationScoped} (no {@code @DefaultBean}) displaces
@@ -45,8 +45,8 @@ public class DevtownObligorTrustPolicy implements ObligorTrustPolicy {
 
         if (floor <= 0.0) return true;          // gate disabled
 
-        return trustGateService.currentScore(ctx.obligorId())
-            .map(score -> score >= floor)
-            .orElse(true);                       // bootstrap — no observations → permit
+        final var scoreOpt = trustGateService.currentScore(ctx.obligorId());
+        if (scoreOpt.isEmpty()) return true;     // bootstrap — no observations → permit
+        return scoreOpt.getAsDouble() >= floor;
     }
 }
