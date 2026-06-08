@@ -63,7 +63,7 @@ class CaseMemoryIntegrationTest {
      * 5. Start a second case for the same contributor
      * 6. Verify recall returns stored facts
      */
-    @Disabled("LEDGER_SUBJECT_SEQUENCE fixed (casehub.ledger.enabled=false). Remaining: CaseDefinition not found during startCase — async case definition registration race. Track in devtown#72.")
+    @Disabled("Two issues: (1) SchedulerService.registerScheduledTriggers() fails on null getCaseDefinition — tracked in engine#444; causes surefire retry failures. (2) CaseMemoryEmitter @ObservesAsync chain doesn't store facts despite ReviewCompletedEvent being captured — async CDI observer delivery issue. Track in devtown#72.")
     @Test
     void fullRoundTrip_emitThenRecall() throws Exception {
         // Phase 1: Start case with full context (including contributor and changedPaths).
