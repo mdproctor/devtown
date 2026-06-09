@@ -297,7 +297,7 @@ Read these **before designing**, not after. The concern column tells you when ea
 Layer 1: naive Java — vocabulary model, @DefaultBean naive service, REST entry point ✅ (devtown#8, #9, #27)
 Layer 2: + casehub-work — SLA-bounded human review gate with escalation ✅ (devtown#41, #42)
 Layer 3: + casehub-qhorus — typed COMMAND/RESPONSE/DONE/DECLINE per reviewer agent interaction ✅ (devtown#52)
-Layer 4: + casehub-ledger — tamper-evident merge decision audit trail
+Layer 4: + casehub-ledger — tamper-evident merge decision audit trail ✅ (devtown#73, devtown#7)
 Layer 5: + casehub-engine — adaptive paths, CasePlanModel, content-driven PR routing ✅ (devtown#10)
 Layer 6: trust routing — trust-weighted reviewer assignment from outcome attestations
 Layer 7: comparison vs Gastown (Refinery/Deacon/Witness architecture)
