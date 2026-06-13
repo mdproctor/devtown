@@ -125,7 +125,7 @@ CaseHub harness applications integrate foundation modules in a defined progressi
 | Domain Baseline | *(none — pure Java)* | L1 | ✅ complete |
 | casehub-work | `casehub-work` | L2 | ✅ code complete |
 | casehub-qhorus | `casehub-qhorus` | L3 | 🔲 pending |
-| casehub-ledger | `casehub-ledger` | L4 | 🔲 pending |
+| casehub-ledger | `casehub-ledger` | L4 | ✅ complete |
 | casehub-engine | `casehub-engine` | L5 | ✅ complete |
 | Trust routing | `casehub-ledger` (trust APIs) | L6 | 🔲 pending |
 
@@ -783,9 +783,11 @@ If any binding condition `context.x == null` evaluates to true on test start, `t
 ### Layer — casehub-ledger
 
 **Participates in chapters:** C4, C5
-**Completed:** 🔲 pending
+**Completed:** ✅ 2026-06-09
+**Issues:** casehubio/devtown#73 (ledger audit), casehubio/devtown#7 (compliance report)
+**Blog:** `blog/2026-06-09-mdp01-the-hash-that-doesnt-hash.md`
 
-🔲 Full entry at C4 close. Will capture: `CaseLedgerEntry` per case state transition; `causedByEntryId` chain for production incident traceability; EU AI Act Art.12 compliance; GDPR ComplianceSupplement. Requires Layer 3 first — the Merkle audit is meaningful only once qhorus generates the commitment chain.
+Layer 4 wires `casehub-ledger` into devtown. `MergeDecisionLedgerEntry` (JOINED, V2002) captures APPROVED/REJECTED terminal merge decisions. `MergeDecisionObserver` derives the decision from `CaseLifecycleEvent`. `CodeReviewComplianceResource` (`GET /api/compliance/code-review/{caseId}`) assembles evidence across audit chain, trust routing, SLA, and GDPR dimensions. `domainContentBytes()` override ensures subclass fields participate in Merkle leaf hash (ledger#128).
 
 ---
 
