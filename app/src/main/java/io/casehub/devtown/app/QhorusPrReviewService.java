@@ -10,6 +10,7 @@ import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.Channel;
+import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
 import jakarta.annotation.Priority;
@@ -18,8 +19,10 @@ import jakarta.enterprise.inject.Alternative;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -118,27 +121,25 @@ public class QhorusPrReviewService implements PrReviewApplicationService {
         final String name = prefix + "/work";
         return channelService.findByName(name)
                 .map(ch -> requireContract(ch, WORK_ALLOWED_TYPES, ORCHESTRATOR))
-                .orElseGet(() -> channelService.create(
-                        name, null, ChannelSemantic.APPEND, ORCHESTRATOR,
-                        ORCHESTRATOR, null, null, null, WORK_ALLOWED_TYPES));
+                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, ORCHESTRATOR, ORCHESTRATOR, null, null, null, parseTypes(WORK_ALLOWED_TYPES), null, null, null, null, null)));
     }
 
     private Channel findOrCreateObserveChannel(final String prefix) {
         final String name = prefix + "/observe";
         return channelService.findByName(name)
                 .map(ch -> requireContract(ch, OBSERVE_ALLOWED_TYPES, ORCHESTRATOR))
-                .orElseGet(() -> channelService.create(
-                        name, null, ChannelSemantic.APPEND, ORCHESTRATOR,
-                        ORCHESTRATOR, null, null, null, OBSERVE_ALLOWED_TYPES));
+                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, ORCHESTRATOR, ORCHESTRATOR, null, null, null, parseTypes(OBSERVE_ALLOWED_TYPES), null, null, null, null, null)));
     }
 
     private Channel findOrCreateOversightChannel(final String prefix) {
         final String name = prefix + "/oversight";
         return channelService.findByName(name)
                 .map(ch -> requireContract(ch, OVERSIGHT_ALLOWED_TYPES, ORCHESTRATOR))
-                .orElseGet(() -> channelService.create(
-                        name, null, ChannelSemantic.APPEND, ORCHESTRATOR,
-                        ORCHESTRATOR, null, null, null, OVERSIGHT_ALLOWED_TYPES));
+                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, ORCHESTRATOR, ORCHESTRATOR, null, null, null, parseTypes(OVERSIGHT_ALLOWED_TYPES), null, null, null, null, null)));
+    }
+
+    private static Set<MessageType> parseTypes(final String csv) {
+        return Arrays.stream(csv.split(",")).map(MessageType::valueOf).collect(Collectors.toSet());
     }
 
     private static Channel requireContract(final Channel ch, final String expectedTypes,
@@ -149,7 +150,11 @@ public class QhorusPrReviewService implements PrReviewApplicationService {
     }
 
     private static void requireAllowedTypes(final Channel ch, final String expected) {
-        if (!expected.equals(ch.allowedTypes)) {
+        Set<String> actual = ch.allowedTypes == null
+                ? Set.of()
+                : Set.of(ch.allowedTypes.split(","));
+        Set<String> expectedSet = Set.of(expected.split(","));
+        if (!actual.equals(expectedSet)) {
             throw new IllegalStateException(
                     "Channel '" + ch.name + "' has allowedTypes='" + ch.allowedTypes
                     + "' but expected '" + expected + "'. "
