@@ -40,9 +40,9 @@ public class MergeDecisionLedgerEntry extends LedgerEntry {
     protected byte[] domainContentBytes() {
         return String.join("|",
                 String.valueOf(prNumber),
-                repository != null ? repository : "",
-                commitSha != null ? commitSha : "",
-                decision != null ? decision : "",
+                LedgerContentUtils.escapePipe(repository),
+                LedgerContentUtils.escapePipe(commitSha),
+                LedgerContentUtils.escapePipe(decision),
                 caseId != null ? caseId.toString() : ""
         ).getBytes(StandardCharsets.UTF_8);
     }

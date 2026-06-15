@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record ErasureReceipt(
-    String actorId,
+    String erasedActorToken,
     Instant erasedAt,
     long ledgerEntriesAffected,
     int memoryRecordsErased,

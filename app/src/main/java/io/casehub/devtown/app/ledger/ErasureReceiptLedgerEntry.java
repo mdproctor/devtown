@@ -35,8 +35,8 @@ public class ErasureReceiptLedgerEntry extends LedgerEntry {
     @Override
     protected byte[] domainContentBytes() {
         return String.join("|",
-                erasedActorToken != null ? erasedActorToken : "",
-                reason != null ? reason : "",
+                LedgerContentUtils.escapePipe(erasedActorToken),
+                LedgerContentUtils.escapePipe(reason),
                 String.valueOf(ledgerEntriesAffected),
                 String.valueOf(memoryRecordsErased)
         ).getBytes(StandardCharsets.UTF_8);

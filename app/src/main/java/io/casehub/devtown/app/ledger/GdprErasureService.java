@@ -1,5 +1,6 @@
 package io.casehub.devtown.app.ledger;
 
+import io.casehub.devtown.domain.HashUtils;
 import io.casehub.devtown.domain.memory.DevtownMemoryDomain;
 import io.casehub.devtown.review.compliance.ErasureReceipt;
 import io.casehub.ledger.api.model.LedgerEntryType;
@@ -13,11 +14,8 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.HexFormat;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
@@ -36,7 +34,7 @@ public class GdprErasureService {
     public ErasureReceipt erase(final String rawActorId, final String tenancyId, final String reason) {
         String queryResult = actorIdentityProvider.tokeniseForQuery(rawActorId);
         String erasedActorToken = queryResult.equals(rawActorId)
-                ? sha256Hex("erasure:" + rawActorId)
+                ? HashUtils.sha256Hex("erasure:" + rawActorId)
                 : queryResult;
 
         int memoryRecordsErased = eraseMemory(rawActorId, tenancyId);
@@ -59,7 +57,7 @@ public class GdprErasureService {
             ledgerRepo.save(receipt, tenancyId);
 
             return new ErasureReceipt(
-                    rawActorId,
+                    erasedActorToken,
                     receipt.occurredAt,
                     erasureResult.affectedEntryCount(),
                     memoryRecordsErased,
@@ -84,13 +82,4 @@ public class GdprErasureService {
         }
     }
 
-    static String sha256Hex(final String input) {
-        try {
-            byte[] hash = MessageDigest.getInstance("SHA-256")
-                    .digest(input.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not available", e);
-        }
-    }
 }

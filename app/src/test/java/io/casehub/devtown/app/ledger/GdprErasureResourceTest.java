@@ -48,7 +48,7 @@ class GdprErasureResourceTest {
                 .statusCode(200)
                 .extract().body().jsonPath();
 
-        assertThat(response.getString("actorId")).isEqualTo(rawActorId);
+        assertThat(response.getString("erasedActorToken")).isEqualTo(token);
         assertThat(response.getLong("ledgerEntriesAffected")).isGreaterThan(0);
         assertThat(response.getString("receiptEntryId")).isNotNull();
         assertThat(response.getString("reason")).isEqualTo("GDPR Art.17 request");

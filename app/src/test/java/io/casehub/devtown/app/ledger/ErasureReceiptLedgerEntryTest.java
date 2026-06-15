@@ -39,6 +39,18 @@ class ErasureReceiptLedgerEntryTest {
     }
 
     @Test
+    void domainContentBytes_escapesPipesInFieldValues() {
+        var entry = new ErasureReceiptLedgerEntry();
+        entry.erasedActorToken = "tok_abc";
+        entry.reason = "reason|with|pipes";
+        entry.ledgerEntriesAffected = 1;
+        entry.memoryRecordsErased = 0;
+
+        String content = new String(entry.domainContentBytes());
+        assertThat(content).isEqualTo("tok_abc|reason\\|with\\|pipes|1|0");
+    }
+
+    @Test
     void domainContentBytes_nonEmpty() {
         var entry = new ErasureReceiptLedgerEntry();
         entry.erasedActorToken = "tok_test";
