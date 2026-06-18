@@ -1,8 +1,10 @@
 package io.casehub.devtown.app;
 
+import io.casehub.devtown.app.mcp.PrReviewCaseTracker;
 import io.casehub.devtown.review.PrPayload;
 import io.casehub.devtown.review.PrReviewApplicationService;
 import io.casehub.devtown.review.PrReviewOutcome;
+import io.casehub.platform.api.identity.CurrentPrincipal;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -24,6 +26,12 @@ public class PrReviewCaseService implements PrReviewApplicationService {
 
     @Inject
     CaseMemoryRecaller memoryRecaller;
+
+    @Inject
+    PrReviewCaseTracker caseTracker;
+
+    @Inject
+    CurrentPrincipal principal;
 
     @ConfigProperty(name = "devtown.policy.human-approval-threshold", defaultValue = "500")
     int humanApprovalThreshold;
@@ -59,7 +67,8 @@ public class PrReviewCaseService implements PrReviewApplicationService {
         initialContext.put("memory", memoryContext.toContextMap());
 
         // CompletionStage<UUID> case ID — not surfaced in PrReviewOutcome until Layer 6 adds case tracking (devtown#10)
-        caseHub.startCase(initialContext);
+        var caseId = caseHub.startCase(initialContext);
+        caseId.thenAccept(id -> caseTracker.register(id, principal.tenancyId(), pr));
         return new PrReviewOutcome(VERDICT_CASE_OPENED, List.of());
     }
 }
