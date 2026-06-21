@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -105,5 +106,39 @@ class PrReviewCaseServiceLifecycleTest {
 
         verify(caseHub).signal(eq(caseId), eq("pr.headSha"), eq("newsha"));
         verify(caseHub, never()).startCase(any());
+    }
+
+    @Test
+    void revisePr_externalMode_resetsCiToPending() {
+        service.ciMode = "external";
+        service.revisePr("casehubio/devtown", 42, "newsha", 200);
+
+        verify(caseHub).signal(eq(caseId), eq("ci"), eq(Map.of("status", "pending")));
+    }
+
+    @Test
+    void revisePr_dispatchedMode_nullsCi() {
+        service.ciMode = "dispatched";
+        service.revisePr("casehubio/devtown", 42, "newsha", 200);
+
+        verify(caseHub).signal(eq(caseId), eq("ci"), isNull());
+    }
+
+    @Test
+    void revisePr_updatesTrackerHeadSha() {
+        service.ciMode = "external";
+        service.revisePr("casehubio/devtown", 42, "newsha", 200);
+
+        assertThat(tracker.getCase(caseId).payload().headSha()).isEqualTo("newsha");
+    }
+
+    @Test
+    void revisePr_ciInvalidation_afterAnalysisInvalidation() {
+        service.ciMode = "external";
+        service.revisePr("casehubio/devtown", 42, "newsha", 200);
+
+        InOrder inOrder = inOrder(caseHub);
+        inOrder.verify(caseHub).signal(eq(caseId), eq("performanceAnalysis"), isNull());
+        inOrder.verify(caseHub).signal(eq(caseId), eq("ci"), eq(Map.of("status", "pending")));
     }
 }

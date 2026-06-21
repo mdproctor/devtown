@@ -180,4 +180,24 @@ class PrReviewCaseTrackerTest {
         assertThat(events.get(1).prNumber()).isEqualTo(2);
         assertThat(events.get(2).prNumber()).isEqualTo(3);
     }
+
+    @Test
+    void updateHeadSha_updatesPayloadSha_preservesOtherFields() {
+        UUID caseId = UUID.randomUUID();
+        var payload = new PrPayload("casehubio/devtown", 42, "oldsha", "main", 100, "octocat", List.of("src/Foo.java"));
+        tracker.register(caseId, "tenant-1", payload);
+
+        tracker.updateHeadSha(caseId, "newsha");
+
+        CaseInfo updated = tracker.getCase(caseId);
+        assertThat(updated.payload().headSha()).isEqualTo("newsha");
+        assertThat(updated.payload().repo()).isEqualTo("casehubio/devtown");
+        assertThat(updated.payload().prNumber()).isEqualTo(42);
+        assertThat(updated.payload().baseRef()).isEqualTo("main");
+        assertThat(updated.payload().linesChanged()).isEqualTo(100);
+        assertThat(updated.payload().contributor()).isEqualTo("octocat");
+        assertThat(updated.payload().changedPaths()).containsExactly("src/Foo.java");
+        assertThat(updated.tenancyId()).isEqualTo("tenant-1");
+        assertThat(updated.status()).isEqualTo(CaseTrackingStatus.RUNNING);
+    }
 }

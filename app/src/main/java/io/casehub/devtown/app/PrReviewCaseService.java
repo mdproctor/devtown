@@ -10,6 +10,7 @@ import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,6 +46,11 @@ public class PrReviewCaseService implements PrReviewApplicationService {
     @ConfigProperty(name = "devtown.policy.require-senior-approval", defaultValue = "false")
     boolean requireSeniorApproval;
 
+    @ConfigProperty(name = "devtown.ci.mode", defaultValue = "external")
+    String ciMode;
+
+    private final java.util.concurrent.ConcurrentHashMap<UUID, java.util.concurrent.ConcurrentHashMap<Long, String>> ciSuiteResults = new java.util.concurrent.ConcurrentHashMap<>();
+
     @Override
     public PrReviewOutcome startReview(PrPayload pr) {
         var existing = caseTracker.findActiveCaseByPr(pr.repo(), pr.prNumber());
@@ -74,6 +80,9 @@ public class PrReviewCaseService implements PrReviewApplicationService {
         initialContext.put("pr", prContext);
         initialContext.put("policy", policy);
         initialContext.put("memory", memoryContext.toContextMap());
+        if ("external".equals(ciMode)) {
+            initialContext.put("ci", Map.of("status", "pending"));
+        }
 
         UUID caseId = caseHub.startCase(initialContext).toCompletableFuture().join();
         caseTracker.register(caseId, principal.tenancyId(), pr);
@@ -101,6 +110,15 @@ public class PrReviewCaseService implements PrReviewApplicationService {
         caseHub.signal(caseId, "testCoverage", null);
         caseHub.signal(caseId, "performanceAnalysis", null);
 
+        ciSuiteResults.remove(caseId);
+
+        if ("external".equals(ciMode)) {
+            caseHub.signal(caseId, "ci", Map.of("status", "pending"));
+        } else {
+            caseHub.signal(caseId, "ci", null);
+        }
+        caseTracker.updateHeadSha(caseId, newHeadSha);
+
         return LifecycleResult.UPDATED;
     }
 
@@ -111,6 +129,54 @@ public class PrReviewCaseService implements PrReviewApplicationService {
 
         UUID caseId = active.get().caseId();
         caseHub.signal(caseId, "pr.status", merged ? "merged" : "closed");
+
+        return LifecycleResult.UPDATED;
+    }
+
+    @Override
+    public LifecycleResult signalCiStatus(String repo, int prNumber, String headSha, long suiteId, String conclusion) {
+        var active = caseTracker.findActiveCaseByPr(repo, prNumber);
+        if (active.isEmpty()) return LifecycleResult.NO_ACTIVE_CASE;
+
+        UUID caseId = active.get().caseId();
+
+        String currentSha = caseHub.query(caseId, "pr.headSha", String.class).toCompletableFuture().join();
+        if (!headSha.equals(currentSha)) return LifecycleResult.STALE_EVENT;
+
+        var suites = ciSuiteResults.computeIfAbsent(caseId, k -> new java.util.concurrent.ConcurrentHashMap<>());
+        suites.put(suiteId, conclusion);
+
+        caseHub.signal(caseId, "ci.suites." + suiteId, Map.of(
+            "conclusion", conclusion,
+            "completedAt", java.time.Instant.now().toString()
+        ));
+
+        boolean anyFailed = suites.values().stream().anyMatch(c -> !"success".equals(c));
+        boolean allSuccess = suites.values().stream().allMatch("success"::equals);
+
+        if (anyFailed) {
+            caseHub.signal(caseId, "ci.status", "failing");
+        } else if (allSuccess) {
+            caseHub.signal(caseId, "ci.status", "passing");
+        }
+
+        return LifecycleResult.UPDATED;
+    }
+
+    @Override
+    public LifecycleResult signalCheckRun(String repo, int prNumber, String headSha, String checkName, String conclusion, Instant completedAt) {
+        var active = caseTracker.findActiveCaseByPr(repo, prNumber);
+        if (active.isEmpty()) return LifecycleResult.NO_ACTIVE_CASE;
+
+        UUID caseId = active.get().caseId();
+
+        String currentSha = caseHub.query(caseId, "pr.headSha", String.class).toCompletableFuture().join();
+        if (!headSha.equals(currentSha)) return LifecycleResult.STALE_EVENT;
+
+        caseHub.signal(caseId, "ci.checks." + checkName, Map.of(
+            "conclusion", conclusion,
+            "completedAt", completedAt.toString()
+        ));
 
         return LifecycleResult.UPDATED;
     }

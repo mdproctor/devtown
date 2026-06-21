@@ -27,6 +27,16 @@ class GitHubWebhookResourceTest {
         boolean lastCloseMerged;
         LifecycleResult revisePrResult = LifecycleResult.UPDATED;
         LifecycleResult closePrResult = LifecycleResult.UPDATED;
+        String lastCiRepo;
+        int lastCiPr;
+        String lastCiSha;
+        long lastCiSuiteId;
+        String lastCiConclusion;
+        String lastCheckRunName;
+        String lastCheckRunConclusion;
+        java.time.Instant lastCheckRunCompletedAt;
+        LifecycleResult signalCiResult = LifecycleResult.UPDATED;
+        LifecycleResult signalCheckRunResult = LifecycleResult.UPDATED;
 
         @Override
         public PrReviewOutcome startReview(PrPayload pr) {
@@ -46,6 +56,24 @@ class GitHubWebhookResourceTest {
             lastCloseRepo = repo;
             lastCloseMerged = merged;
             return closePrResult;
+        }
+
+        @Override
+        public LifecycleResult signalCiStatus(String repo, int prNumber, String headSha, long suiteId, String conclusion) {
+            lastCiRepo = repo;
+            lastCiPr = prNumber;
+            lastCiSha = headSha;
+            lastCiSuiteId = suiteId;
+            lastCiConclusion = conclusion;
+            return signalCiResult;
+        }
+
+        @Override
+        public LifecycleResult signalCheckRun(String repo, int prNumber, String headSha, String checkName, String conclusion, java.time.Instant completedAt) {
+            lastCheckRunName = checkName;
+            lastCheckRunConclusion = conclusion;
+            lastCheckRunCompletedAt = completedAt;
+            return signalCheckRunResult;
         }
     }
 
@@ -160,7 +188,73 @@ class GitHubWebhookResourceTest {
         assertThat(responseBody(response)).containsEntry("status", "ignored");
     }
 
+    @Test
+    void checkSuite_completed_callsSignalCiStatus() {
+        String body = checkSuiteEvent("completed", "success", 12345);
+        resource.receive(body, "check_suite", sign(body), "delivery-1");
+        assertThat(service.lastCiRepo).isEqualTo("casehubio/devtown");
+        assertThat(service.lastCiPr).isEqualTo(42);
+        assertThat(service.lastCiSha).isEqualTo("abc123");
+        assertThat(service.lastCiSuiteId).isEqualTo(12345);
+        assertThat(service.lastCiConclusion).isEqualTo("success");
+    }
+
+    @Test
+    void checkSuite_requested_returnsIgnored() {
+        String body = checkSuiteEvent("requested", null, 12345);
+        var response = resource.receive(body, "check_suite", sign(body), "delivery-1");
+        assertThat(responseBody(response)).containsEntry("status", "ignored");
+        assertThat(service.lastCiRepo).isNull();
+    }
+
+    @Test
+    void checkSuite_emptyPullRequests_returnsIgnoredNoPullRequests() {
+        String body = checkSuiteEventNoPrs("completed", "success", 12345);
+        var response = resource.receive(body, "check_suite", sign(body), "delivery-1");
+        assertThat(responseBody(response)).containsEntry("status", "ignored");
+        assertThat(responseBody(response)).containsEntry("reason", "no-pull-requests");
+    }
+
+    @Test
+    void checkSuite_staleEvent_returnsIgnoredStaleSha() {
+        service.signalCiResult = LifecycleResult.STALE_EVENT;
+        String body = checkSuiteEvent("completed", "success", 12345);
+        var response = resource.receive(body, "check_suite", sign(body), "delivery-1");
+        assertThat(responseBody(response)).containsEntry("status", "ignored");
+        assertThat(responseBody(response)).containsEntry("reason", "stale-sha");
+    }
+
+    @Test
+    void checkRun_completed_callsSignalCheckRun() {
+        String body = checkRunEvent("completed", "lint", "success");
+        resource.receive(body, "check_run", sign(body), "delivery-1");
+        assertThat(service.lastCheckRunName).isEqualTo("lint");
+        assertThat(service.lastCheckRunConclusion).isEqualTo("success");
+    }
+
+    @Test
+    void checkRun_created_returnsIgnored() {
+        String body = checkRunEvent("created", "lint", null);
+        var response = resource.receive(body, "check_run", sign(body), "delivery-1");
+        assertThat(responseBody(response)).containsEntry("status", "ignored");
+        assertThat(service.lastCheckRunName).isNull();
+    }
+
     private String prEvent(String action, boolean draft, boolean merged) {
         return "{\"action\":\"%s\",\"number\":42,\"pull_request\":{\"head\":{\"sha\":\"abc\"},\"base\":{\"ref\":\"main\"},\"user\":{\"login\":\"octocat\"},\"draft\":%s,\"merged\":%s,\"additions\":10,\"deletions\":5,\"changed_files\":1},\"repository\":{\"full_name\":\"casehubio/devtown\"}}".formatted(action, draft, merged);
+    }
+
+    private String checkSuiteEvent(String action, String conclusion, long suiteId) {
+        String conclusionField = conclusion != null ? "\"conclusion\":\"%s\",".formatted(conclusion) : "";
+        return "{\"action\":\"%s\",\"check_suite\":{\"id\":%d,\"head_sha\":\"abc123\",\"status\":\"completed\",%s\"pull_requests\":[{\"number\":42,\"head\":{\"sha\":\"abc123\"}}]},\"repository\":{\"full_name\":\"casehubio/devtown\"}}".formatted(action, suiteId, conclusionField);
+    }
+
+    private String checkSuiteEventNoPrs(String action, String conclusion, long suiteId) {
+        return "{\"action\":\"%s\",\"check_suite\":{\"id\":%d,\"head_sha\":\"abc123\",\"status\":\"completed\",\"conclusion\":\"%s\",\"pull_requests\":[]},\"repository\":{\"full_name\":\"casehubio/devtown\"}}".formatted(action, suiteId, conclusion);
+    }
+
+    private String checkRunEvent(String action, String name, String conclusion) {
+        String conclusionField = conclusion != null ? "\"conclusion\":\"%s\",".formatted(conclusion) : "";
+        return "{\"action\":\"%s\",\"check_run\":{\"name\":\"%s\",\"status\":\"completed\",%s\"completed_at\":\"2026-06-21T12:00:00Z\",\"head_sha\":\"abc123\",\"pull_requests\":[{\"number\":42,\"head\":{\"sha\":\"abc123\"}}]},\"repository\":{\"full_name\":\"casehubio/devtown\"}}".formatted(action, name, conclusionField);
     }
 }

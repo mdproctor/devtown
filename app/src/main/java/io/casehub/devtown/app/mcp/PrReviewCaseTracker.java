@@ -69,6 +69,10 @@ public class PrReviewCaseTracker {
             existing.withStatus(CaseTrackingStatus.fromCaseStatus(caseStatus), eventTime));
     }
 
+    public void updateHeadSha(UUID caseId, String newSha) {
+        cases.computeIfPresent(caseId, (id, existing) -> existing.withHeadSha(newSha));
+    }
+
     public void addEvent(TrackedEvent event) {
         synchronized (eventBuffer) {
             if (eventBuffer.size() >= maxBufferSize) {

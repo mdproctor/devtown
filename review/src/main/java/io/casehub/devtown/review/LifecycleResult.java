@@ -4,5 +4,6 @@ public enum LifecycleResult {
     UPDATED,
     NO_ACTIVE_CASE,
     ALREADY_COMPLETED,
-    ALREADY_ABANDONED
+    ALREADY_ABANDONED,
+    STALE_EVENT
 }

@@ -7,6 +7,7 @@ import io.casehub.devtown.review.PrReviewOutcome;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +31,16 @@ public class PrReviewService implements PrReviewApplicationService {
 
     @Override
     public LifecycleResult closePr(String repo, int prNumber, boolean merged) {
+        return LifecycleResult.NO_ACTIVE_CASE;
+    }
+
+    @Override
+    public LifecycleResult signalCiStatus(String repo, int prNumber, String headSha, long suiteId, String conclusion) {
+        return LifecycleResult.NO_ACTIVE_CASE;
+    }
+
+    @Override
+    public LifecycleResult signalCheckRun(String repo, int prNumber, String headSha, String checkName, String conclusion, Instant completedAt) {
         return LifecycleResult.NO_ACTIVE_CASE;
     }
 

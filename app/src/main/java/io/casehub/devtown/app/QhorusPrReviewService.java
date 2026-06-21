@@ -19,6 +19,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -135,6 +136,16 @@ public class QhorusPrReviewService implements PrReviewApplicationService {
 
     @Override
     public LifecycleResult closePr(String repo, int prNumber, boolean merged) {
+        return LifecycleResult.NO_ACTIVE_CASE;
+    }
+
+    @Override
+    public LifecycleResult signalCiStatus(String repo, int prNumber, String headSha, long suiteId, String conclusion) {
+        return LifecycleResult.NO_ACTIVE_CASE;
+    }
+
+    @Override
+    public LifecycleResult signalCheckRun(String repo, int prNumber, String headSha, String checkName, String conclusion, Instant completedAt) {
         return LifecycleResult.NO_ACTIVE_CASE;
     }
 

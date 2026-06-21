@@ -47,6 +47,8 @@ public class GitHubWebhookResource {
         try {
             return switch (eventType) {
                 case "pull_request" -> handlePullRequest(body);
+                case "check_suite" -> handleCheckSuite(body);
+                case "check_run" -> handleCheckRun(body);
                 default -> ok(Map.of("status", "ignored", "event", eventType));
             };
         } catch (Exception e) {
@@ -102,12 +104,69 @@ public class GitHubWebhookResource {
         return ok(Map.of("status", "accepted", "action", "case-started"));
     }
 
+    private Response handleCheckSuite(String body) throws Exception {
+        var event = MAPPER.readValue(body, GitHubCheckSuiteEvent.class);
+
+        if (!"completed".equals(event.action())) {
+            return ok(Map.of("status", "ignored", "action", event.action()));
+        }
+
+        if (event.check_suite().pull_requests() == null || event.check_suite().pull_requests().isEmpty()) {
+            return ok(Map.of("status", "ignored", "reason", "no-pull-requests"));
+        }
+
+        String repo = event.repository().full_name();
+        String headSha = event.check_suite().head_sha();
+        long suiteId = event.check_suite().id();
+        String conclusion = event.check_suite().conclusion();
+
+        LifecycleResult lastResult = LifecycleResult.UPDATED;
+        for (var pr : event.check_suite().pull_requests()) {
+            lastResult = service.signalCiStatus(repo, pr.number(), headSha, suiteId, conclusion);
+        }
+
+        if (lastResult == LifecycleResult.STALE_EVENT) {
+            return ok(Map.of("status", "ignored", "reason", "stale-sha"));
+        }
+        return ok(Map.of("status", "accepted", "action", lifecycleAction("ci-status-updated", lastResult)));
+    }
+
+    private Response handleCheckRun(String body) throws Exception {
+        var event = MAPPER.readValue(body, GitHubCheckRunEvent.class);
+
+        if (!"completed".equals(event.action())) {
+            return ok(Map.of("status", "ignored", "action", event.action()));
+        }
+
+        if (event.check_run().pull_requests() == null || event.check_run().pull_requests().isEmpty()) {
+            return ok(Map.of("status", "ignored", "reason", "no-pull-requests"));
+        }
+
+        String repo = event.repository().full_name();
+        String headSha = event.check_run().head_sha();
+        String checkName = event.check_run().name();
+        String conclusion = event.check_run().conclusion();
+        java.time.Instant completedAt = event.check_run().completed_at() != null
+            ? java.time.Instant.parse(event.check_run().completed_at()) : java.time.Instant.now();
+
+        LifecycleResult lastResult = LifecycleResult.UPDATED;
+        for (var pr : event.check_run().pull_requests()) {
+            lastResult = service.signalCheckRun(repo, pr.number(), headSha, checkName, conclusion, completedAt);
+        }
+
+        if (lastResult == LifecycleResult.STALE_EVENT) {
+            return ok(Map.of("status", "ignored", "reason", "stale-sha"));
+        }
+        return ok(Map.of("status", "accepted", "action", lifecycleAction("check-run-recorded", lastResult)));
+    }
+
     private static String lifecycleAction(String normalAction, LifecycleResult result) {
         return switch (result) {
             case UPDATED -> normalAction;
             case NO_ACTIVE_CASE -> "no-active-case";
             case ALREADY_COMPLETED -> "already-completed";
             case ALREADY_ABANDONED -> "already-abandoned";
+            case STALE_EVENT -> "stale-sha";
         };
     }
 
