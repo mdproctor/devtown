@@ -46,7 +46,6 @@ spec:
     - name: merge-executor
       description: "Executes the merge when all goals are satisfied"
       inputSchema: "{ pr: .pr }"
-      outputSchema: "{}"
 
   ## ─── Goals ──────────────────────────────────────────────────────────
   goals:
@@ -89,12 +88,17 @@ spec:
       kind: failure
       condition: '.pr.status == "closed" or .pr.status == "superseded"'
 
+    - name: merge-completed
+      kind: success
+      condition: '.pr.status == "merged" or .merge_sha != null'
+
   completion:
     success:
       allOf:
         - pr-approved
         - security-verified
         - ci-passing
+        - merge-completed
     failure:
       anyOf:
         - review-blocked
@@ -330,6 +334,7 @@ spec:
     - name: merge
       on: { contextChange: {} }
       when: >-
+        .merge_sha == null and
         .pr.status != "merged" and
         (.codeAnalysis.securitySensitive == false or .securityReview.outcome == "APPROVED") and
         (.codeAnalysis.architectureCrossing == false or .architectureReview.outcome == "APPROVED") and
@@ -339,3 +344,8 @@ spec:
         (.pr.linesChanged <= .policy.humanApprovalThreshold or .humanApproval.outcome == "APPROVED") and
         .ci.status == "passing"
       capability: merge-executor
+      conflictResolverStrategy: DEEP_MERGE
+      outcomePolicy:
+        onDecline: FAULT
+        onFailure: FAULT
+        onExpired: FAULT

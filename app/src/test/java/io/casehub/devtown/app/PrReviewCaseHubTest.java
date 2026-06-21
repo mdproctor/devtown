@@ -73,12 +73,12 @@ class PrReviewCaseHubTest {
     }
 
     @Test
-    void hasSixGoals() {
+    void hasSevenGoals() {
         var def = caseHub.getDefinition();
-        assertThat(def.getGoals()).hasSize(6);
+        assertThat(def.getGoals()).hasSize(7);
         var names = def.getGoals().stream().map(g -> g.getName()).toList();
         assertThat(names).containsExactlyInAnyOrder(
-            "pr-approved", "security-verified", "ci-passing",
+            "pr-approved", "security-verified", "ci-passing", "merge-completed",
             "review-blocked", "review-rejected", "review-abandoned");
     }
 

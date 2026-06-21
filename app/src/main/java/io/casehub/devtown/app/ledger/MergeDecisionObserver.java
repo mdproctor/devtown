@@ -73,6 +73,7 @@ public class MergeDecisionObserver {
         String repo = ctx.getPathAsString("pr.repo");
         String prIdStr = ctx.getPathAsString("pr.id");
         String headSha = ctx.getPathAsString("pr.headSha");
+        String mergeSha = ctx.getPathAsString("merge_sha");
         if (repo == null || prIdStr == null) return;
 
         int prNumber;
@@ -89,7 +90,7 @@ public class MergeDecisionObserver {
         entry.entryType = LedgerEntryType.EVENT;
         entry.prNumber = prNumber;
         entry.repository = repo;
-        entry.commitSha = headSha;
+        entry.commitSha = mergeSha != null ? mergeSha : headSha;
         entry.decision = decision;
         entry.actorId = "system";
         entry.actorType = ActorType.SYSTEM;
