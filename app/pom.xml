@@ -83,6 +83,11 @@
       <groupId>io.casehub</groupId>
       <artifactId>casehub-platform-config</artifactId>
     </dependency>
+    <!-- OidcCurrentPrincipal @RequestScoped — displaces MockCurrentPrincipal @DefaultBean (devtown#90) -->
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-platform-oidc</artifactId>
+    </dependency>
 
     <!-- Quarkus extensions -->
     <dependency>
@@ -160,6 +165,12 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- @TestSecurity — controls SecurityIdentity in @QuarkusTest without a real OIDC server (devtown#90) -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-test-security</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

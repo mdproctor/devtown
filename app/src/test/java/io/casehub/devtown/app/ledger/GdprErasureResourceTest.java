@@ -13,6 +13,7 @@ import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
+import io.quarkus.test.security.TestSecurity;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestProfile(TokenisationEnabledTestProfile.class)
+@TestSecurity(user = "devtown-admin", roles = {"devtown-admin"})
 class GdprErasureResourceTest {
 
     @Inject LedgerEntryRepository ledgerRepo;
@@ -41,7 +43,6 @@ class GdprErasureResourceTest {
 
         var response = given()
             .contentType("application/json")
-            .queryParam("tenancyId", tenancyId)
             .body("{\"reason\": \"GDPR Art.17 request\"}")
             .when()
                 .post("/api/actors/" + rawActorId + "/erasure")
@@ -69,7 +70,6 @@ class GdprErasureResourceTest {
 
         var response = given()
             .contentType("application/json")
-            .queryParam("tenancyId", tenancyId)
             .body("{\"reason\": \"GDPR Art.17 test\"}")
             .when()
                 .post("/api/actors/" + rawActorId + "/erasure")
@@ -100,7 +100,6 @@ class GdprErasureResourceTest {
 
         given()
             .contentType("application/json")
-            .queryParam("tenancyId", tenancyId)
             .body("{\"reason\": \"first erasure\"}")
             .when()
                 .post("/api/actors/" + rawActorId + "/erasure")
@@ -109,7 +108,6 @@ class GdprErasureResourceTest {
 
         var response = given()
             .contentType("application/json")
-            .queryParam("tenancyId", tenancyId)
             .body("{\"reason\": \"second erasure\"}")
             .when()
                 .post("/api/actors/" + rawActorId + "/erasure")
@@ -126,7 +124,6 @@ class GdprErasureResourceTest {
 
         var response = given()
             .contentType("application/json")
-            .queryParam("tenancyId", tenancyId)
             .body("{\"reason\": \"GDPR Art.17 request\"}")
             .when()
                 .post("/api/actors/nonexistent-actor-" + UUID.randomUUID() + "/erasure")

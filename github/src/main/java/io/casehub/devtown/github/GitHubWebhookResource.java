@@ -3,6 +3,7 @@ package io.casehub.devtown.github;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.devtown.review.LifecycleResult;
 import io.casehub.devtown.review.PrReviewApplicationService;
+import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.HeaderParam;
@@ -19,6 +20,7 @@ import java.util.Map;
 @Path("/api/github/webhook")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@PermitAll
 public class GitHubWebhookResource {
 
     private static final Logger LOG = Logger.getLogger(GitHubWebhookResource.class);

@@ -7,6 +7,7 @@ import io.casehub.platform.api.memory.MemoryInput;
 import io.casehub.platform.api.memory.MemoryQuery;
 import io.casehub.platform.testing.FixedCurrentPrincipal;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.security.TestSecurity;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @QuarkusTest
+@TestSecurity(user = "devtown-admin", roles = {"devtown-admin"})
 class MemoryAdminResourceTest {
 
     @Inject CaseMemoryStore store;

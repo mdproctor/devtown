@@ -10,6 +10,7 @@ import io.casehub.ledger.runtime.service.LedgerProvExportService;
 import io.casehub.ledger.runtime.service.TrustGateService;
 import io.casehub.ledger.runtime.service.federation.TrustExportService;
 import io.casehub.ledger.runtime.service.federation.TrustExportPayload;
+import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.platform.api.memory.CaseMemoryStore;
 import io.casehub.qhorus.api.message.MessageType;
@@ -66,6 +67,9 @@ class DevtownMcpToolsTest {
     @Mock
     PrReviewCaseHub caseHub;
 
+    @Mock
+    CurrentPrincipal principal;
+
     @InjectMocks
     DevtownMcpTools tools;
 
@@ -77,6 +81,7 @@ class DevtownMcpToolsTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        when(principal.tenancyId()).thenReturn(TenancyConstants.DEFAULT_TENANT_ID);
         objectMapper = new ObjectMapper();
         testCaseId = UUID.randomUUID();
         testPayload = new PrPayload(
@@ -266,7 +271,7 @@ class DevtownMcpToolsTest {
     void inspectReview_unknownCase_throwsIllegalArgumentException() {
         when(tracker.getCase(testCaseId)).thenReturn(null);
 
-        assertThatThrownBy(() -> tools.inspectReview(testCaseId.toString(), null))
+        assertThatThrownBy(() -> tools.inspectReview(testCaseId.toString()))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Case not found");
     }
@@ -293,7 +298,7 @@ class DevtownMcpToolsTest {
         when(caseHubRuntime.eventLog(eq(testCaseId), anySet()))
             .thenReturn(CompletableFuture.completedFuture(List.of(workerEvent)));
 
-        DevtownMcpTools.ReviewDetail detail = tools.inspectReview(testCaseId.toString(), null);
+        DevtownMcpTools.ReviewDetail detail = tools.inspectReview(testCaseId.toString());
 
         assertThat(detail.caseId()).isEqualTo(testCaseId);
         assertThat(detail.pr()).isEqualTo(testPayload);
@@ -321,7 +326,7 @@ class DevtownMcpToolsTest {
         when(trustGateService.decisionCount(eq("reviewer-1"), anyString())).thenReturn(5);
         when(tracker.recentEvents(100, null)).thenReturn(List.of());
 
-        DevtownMcpTools.ReviewerHealth health = tools.getReviewerHealth("reviewer-1", null);
+        DevtownMcpTools.ReviewerHealth health = tools.getReviewerHealth("reviewer-1");
 
         assertThat(health.reviewerId()).isEqualTo("reviewer-1");
         assertThat(health.openCommitments()).isEqualTo(1);
@@ -336,8 +341,7 @@ class DevtownMcpToolsTest {
 
         List<DevtownMcpTools.PriorDecision> decisions = tools.getPriorDecisions(
             "casehubio/devtown",
-            "src/Main.java",
-            null
+            "src/Main.java"
         );
 
         assertThat(decisions).isEmpty();
@@ -347,7 +351,7 @@ class DevtownMcpToolsTest {
     void retryReviewer_unknownCase_throws() {
         when(tracker.getCase(testCaseId)).thenReturn(null);
 
-        assertThatThrownBy(() -> tools.retryReviewer(testCaseId.toString(), "code-analysis", null))
+        assertThatThrownBy(() -> tools.retryReviewer(testCaseId.toString(), "code-analysis"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Case not found");
     }
@@ -356,7 +360,7 @@ class DevtownMcpToolsTest {
     void retryReviewer_unknownCapability_throws() {
         when(tracker.getCase(testCaseId)).thenReturn(testCaseInfo);
 
-        assertThatThrownBy(() -> tools.retryReviewer(testCaseId.toString(), "invalid-capability", null))
+        assertThatThrownBy(() -> tools.retryReviewer(testCaseId.toString(), "invalid-capability"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Unknown capability");
     }
@@ -367,8 +371,7 @@ class DevtownMcpToolsTest {
 
         DevtownMcpTools.RetryResult result = tools.retryReviewer(
             testCaseId.toString(),
-            "code-analysis",
-            null
+            "code-analysis"
         );
 
         assertThat(result.caseId()).isEqualTo(testCaseId);
@@ -381,7 +384,7 @@ class DevtownMcpToolsTest {
     void rerouteReview_unknownCase_throws() {
         when(tracker.getCase(testCaseId)).thenReturn(null);
 
-        assertThatThrownBy(() -> tools.rerouteReview(testCaseId.toString(), null))
+        assertThatThrownBy(() -> tools.rerouteReview(testCaseId.toString()))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Case not found");
     }
@@ -394,7 +397,7 @@ class DevtownMcpToolsTest {
         when(caseHub.startCase(any(Map.class)))
             .thenReturn(CompletableFuture.completedFuture(newCaseId));
 
-        DevtownMcpTools.RerouteResult result = tools.rerouteReview(testCaseId.toString(), null);
+        DevtownMcpTools.RerouteResult result = tools.rerouteReview(testCaseId.toString());
 
         assertThat(result.oldCaseId()).isEqualTo(testCaseId);
         assertThat(result.newCaseId()).isEqualTo(newCaseId);
@@ -411,8 +414,7 @@ class DevtownMcpToolsTest {
             testCaseId.toString(),
             "code-analysis",
             "APPROVED",
-            "Manual override",
-            null
+            "Manual override"
         ))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Case not found");
@@ -426,8 +428,7 @@ class DevtownMcpToolsTest {
             testCaseId.toString(),
             "code-analysis",
             "APPROVED",
-            "Emergency override",
-            null
+            "Emergency override"
         );
 
         assertThat(result.caseId()).isEqualTo(testCaseId);
@@ -448,7 +449,7 @@ class DevtownMcpToolsTest {
         when(provExportService.exportSubject(testCaseId, TenancyConstants.DEFAULT_TENANT_ID))
             .thenReturn(provJson);
 
-        String result = tools.exportProv(testCaseId.toString(), null);
+        String result = tools.exportProv(testCaseId.toString());
 
         assertThat(result).isEqualTo(provJson);
         verify(provExportService).exportSubject(testCaseId, TenancyConstants.DEFAULT_TENANT_ID);

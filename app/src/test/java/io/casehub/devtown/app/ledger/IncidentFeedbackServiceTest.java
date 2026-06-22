@@ -19,6 +19,7 @@ import io.casehub.platform.api.identity.ActorType;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
+import io.quarkus.test.security.TestSecurity;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.WebApplicationException;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestProfile(LedgerEnabledTestProfile.class)
+@TestSecurity(user = "devtown-admin", roles = {"devtown-admin"})
 class IncidentFeedbackServiceTest {
 
     private static final String TENANT = "test-tenant";

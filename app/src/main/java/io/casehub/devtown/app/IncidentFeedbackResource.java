@@ -1,6 +1,7 @@
 package io.casehub.devtown.app;
 
 import io.casehub.devtown.app.ledger.IncidentFeedbackService;
+import io.casehub.devtown.domain.DevtownRoles;
 import io.casehub.devtown.domain.IncidentFeedback;
 import io.casehub.devtown.domain.IncidentFeedbackResult;
 import jakarta.annotation.security.RolesAllowed;
@@ -15,7 +16,7 @@ import jakarta.ws.rs.core.MediaType;
 @Path("/api/incident-feedback")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-@RolesAllowed("admin")
+@RolesAllowed(DevtownRoles.ADMIN)
 @ApplicationScoped
 public class IncidentFeedbackResource {
 

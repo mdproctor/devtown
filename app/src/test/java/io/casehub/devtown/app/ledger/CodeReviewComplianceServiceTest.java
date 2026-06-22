@@ -12,8 +12,10 @@ import io.casehub.ledger.runtime.model.supplement.ComplianceSupplement;
 import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
 import io.casehub.platform.api.identity.ActorType;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
+import io.quarkus.test.security.TestSecurity;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -25,15 +27,17 @@ import static io.restassured.RestAssured.given;
 
 @QuarkusTest
 @TestProfile(LedgerEnabledTestProfile.class)
+@TestSecurity(user = "devtown-admin", roles = {"devtown-admin"})
 class CodeReviewComplianceServiceTest {
 
     @Inject CodeReviewComplianceService complianceService;
     @Inject LedgerEntryRepository ledgerRepo;
+    @Inject CurrentPrincipal principal;
 
     @Test
     void fullCase_allRequirementsClosed() {
         UUID caseId = UUID.randomUUID();
-        String tenancyId = "test-tenant";
+        String tenancyId = principal.tenancyId();
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
         // 1. Seed a CaseLedgerEntry (COMPLETED)
@@ -130,7 +134,7 @@ class CodeReviewComplianceServiceTest {
         UUID unknownCaseId = UUID.randomUUID();
 
         Optional<CodeReviewComplianceEvidence> result =
-                QuarkusTransaction.requiringNew().call(() -> complianceService.findEvidence(unknownCaseId, "test-tenant"));
+                QuarkusTransaction.requiringNew().call(() -> complianceService.findEvidence(unknownCaseId, principal.tenancyId()));
 
         assertThat(result).isEmpty();
     }
@@ -144,7 +148,7 @@ class CodeReviewComplianceServiceTest {
         MergeDecisionLedgerEntry mde = new MergeDecisionLedgerEntry();
         mde.subjectId = caseId;
         mde.caseId = caseId;
-        mde.tenancyId = "test-tenant";
+        mde.tenancyId = principal.tenancyId();
         mde.entryType = LedgerEntryType.EVENT;
         mde.prNumber = 99;
         mde.repository = "casehubio/engine";
@@ -157,7 +161,6 @@ class CodeReviewComplianceServiceTest {
         saveLedgerEntry(mde);
 
         given()
-            .queryParam("tenancyId", "test-tenant")
             .when()
                 .get("/api/compliance/code-review/" + caseId)
             .then()
@@ -178,7 +181,7 @@ class CodeReviewComplianceServiceTest {
 
     private <T extends LedgerEntry> T saveLedgerEntry(T entry) {
         return QuarkusTransaction.requiringNew().call(() -> {
-            ledgerRepo.save(entry, "test-tenant");
+            ledgerRepo.save(entry, principal.tenancyId());
             return entry;
         });
     }

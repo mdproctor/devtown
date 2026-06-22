@@ -8,7 +8,7 @@ import io.casehub.devtown.review.PrPayload;
 import io.casehub.ledger.runtime.service.LedgerProvExportService;
 import io.casehub.ledger.runtime.service.TrustGateService;
 import io.casehub.ledger.runtime.service.federation.TrustExportService;
-import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.memory.CaseMemoryStore;
 import io.casehub.platform.api.memory.MemoryOrder;
 import io.casehub.platform.api.memory.MemoryQuery;
@@ -73,6 +73,9 @@ public class DevtownMcpTools {
 
     @Inject
     PrReviewCaseHub caseHub;
+
+    @Inject
+    CurrentPrincipal principal;
 
     @ConfigProperty(name = "devtown.policy.human-approval-threshold", defaultValue = "500")
     int humanApprovalThreshold;
@@ -301,8 +304,7 @@ public class DevtownMcpTools {
         description = "Get detailed review status including timeline and capability progress"
     )
     public ReviewDetail inspectReview(
-        @ToolArg(name = "case_id", description = "Case UUID", required = true) String caseIdStr,
-        @ToolArg(name = "tenancy_id", description = "Tenancy ID", required = false) String tenancyId
+        @ToolArg(name = "case_id", description = "Case UUID", required = true) String caseIdStr
     ) {
         UUID caseId = UUID.fromString(caseIdStr);
         CaseInfo caseInfo = tracker.getCase(caseId);
@@ -311,7 +313,7 @@ public class DevtownMcpTools {
             throw new IllegalArgumentException("Case not found: " + caseId);
         }
 
-        String tenant = tenancyId != null ? tenancyId : TenancyConstants.DEFAULT_TENANT_ID;
+        String tenant = principal.tenancyId();
 
         // Event log timeline (await async result)
         List<CaseEventLogRecord> events = caseHubRuntime.eventLog(caseId).toCompletableFuture().join();
@@ -363,10 +365,8 @@ public class DevtownMcpTools {
         description = "Get health metrics for a specific reviewer: commitments, trust scores, decision history"
     )
     public ReviewerHealth getReviewerHealth(
-        @ToolArg(name = "reviewer_id", description = "Reviewer actor ID", required = true) String reviewerId,
-        @ToolArg(name = "tenancy_id", description = "Tenancy ID", required = false) String tenancyId
+        @ToolArg(name = "reviewer_id", description = "Reviewer actor ID", required = true) String reviewerId
     ) {
-        String tenant = tenancyId != null ? tenancyId : TenancyConstants.DEFAULT_TENANT_ID;
 
         List<Commitment> openCommitments = commitmentStore.findOpenByObligor(reviewerId);
         Map<String, Double> trustByCapability = trustGateService.allCapabilityScores(reviewerId);
@@ -412,10 +412,9 @@ public class DevtownMcpTools {
     )
     public List<PriorDecision> getPriorDecisions(
         @ToolArg(name = "repo", description = "Repository name", required = true) String repo,
-        @ToolArg(name = "file_path", description = "File path within repo", required = true) String filePath,
-        @ToolArg(name = "tenancy_id", description = "Tenancy ID", required = false) String tenancyId
+        @ToolArg(name = "file_path", description = "File path within repo", required = true) String filePath
     ) {
-        String tenant = tenancyId != null ? tenancyId : TenancyConstants.DEFAULT_TENANT_ID;
+        String tenant = principal.tenancyId();
 
         if (!memoryStoreInstance.isResolvable()) {
             return List.of();
@@ -452,13 +451,10 @@ public class DevtownMcpTools {
         description = "Export PROV-DM provenance record for a case (PROV-JSON-LD format)"
     )
     public String exportProv(
-        @ToolArg(name = "case_id", description = "Case UUID", required = true) String caseIdStr,
-        @ToolArg(name = "tenancy_id", description = "Tenancy ID", required = false) String tenancyId
+        @ToolArg(name = "case_id", description = "Case UUID", required = true) String caseIdStr
     ) {
         UUID caseId = UUID.fromString(caseIdStr);
-        String tenant = tenancyId != null ? tenancyId : TenancyConstants.DEFAULT_TENANT_ID;
-
-        return provExportService.exportSubject(caseId, tenant);
+        return provExportService.exportSubject(caseId, principal.tenancyId());
     }
 
     // ==================== Write Tools ====================
@@ -469,8 +465,7 @@ public class DevtownMcpTools {
     )
     public RetryResult retryReviewer(
         @ToolArg(name = "case_id", description = "Case UUID", required = true) String caseIdStr,
-        @ToolArg(name = "capability", description = "Capability to retry", required = true) String capability,
-        @ToolArg(name = "tenancy_id", description = "Tenancy ID", required = false) String tenancyId
+        @ToolArg(name = "capability", description = "Capability to retry", required = true) String capability
     ) {
         UUID caseId = UUID.fromString(caseIdStr);
 
@@ -483,10 +478,6 @@ public class DevtownMcpTools {
         if (contextKey == null) {
             throw new IllegalArgumentException("Unknown capability: " + capability);
         }
-
-        String tenant = tenancyId != null ? tenancyId : TenancyConstants.DEFAULT_TENANT_ID;
-
-        // Signal case with null to trigger retry
         caseHubRuntime.signal(caseId, contextKey, null);
 
         return new RetryResult(caseId, capability, "RETRY_SIGNALED");
@@ -497,8 +488,7 @@ public class DevtownMcpTools {
         description = "Cancel current case and start a fresh review with the same PR payload"
     )
     public RerouteResult rerouteReview(
-        @ToolArg(name = "case_id", description = "Case UUID to cancel", required = true) String caseIdStr,
-        @ToolArg(name = "tenancy_id", description = "Tenancy ID", required = false) String tenancyId
+        @ToolArg(name = "case_id", description = "Case UUID to cancel", required = true) String caseIdStr
     ) {
         UUID oldCaseId = UUID.fromString(caseIdStr);
 
@@ -507,7 +497,7 @@ public class DevtownMcpTools {
             throw new IllegalArgumentException("Case not found: " + oldCaseId);
         }
 
-        String tenant = tenancyId != null ? tenancyId : TenancyConstants.DEFAULT_TENANT_ID;
+        String tenant = principal.tenancyId();
 
         caseHubRuntime.cancelCase(oldCaseId);
 
@@ -545,8 +535,7 @@ public class DevtownMcpTools {
         @ToolArg(name = "case_id", description = "Case UUID", required = true) String caseIdStr,
         @ToolArg(name = "capability", description = "Capability to force-complete", required = true) String capability,
         @ToolArg(name = "outcome", description = "Outcome (APPROVED/DECLINED)", required = true) String outcome,
-        @ToolArg(name = "reason", description = "Override reason", required = true) String reason,
-        @ToolArg(name = "tenancy_id", description = "Tenancy ID", required = false) String tenancyId
+        @ToolArg(name = "reason", description = "Override reason", required = true) String reason
     ) {
         UUID caseId = UUID.fromString(caseIdStr);
 
@@ -559,8 +548,6 @@ public class DevtownMcpTools {
         if (contextKey == null) {
             throw new IllegalArgumentException("Unknown capability: " + capability);
         }
-
-        String tenant = tenancyId != null ? tenancyId : TenancyConstants.DEFAULT_TENANT_ID;
 
         // Signal case with synthetic result
         Map<String, Object> syntheticResult = Map.of(

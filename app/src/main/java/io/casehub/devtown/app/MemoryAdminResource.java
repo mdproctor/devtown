@@ -1,5 +1,6 @@
 package io.casehub.devtown.app;
 
+import io.casehub.devtown.domain.DevtownRoles;
 import io.casehub.devtown.domain.memory.DevtownMemoryDomain;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.memory.CaseMemoryStore;
@@ -16,7 +17,7 @@ import org.jboss.logging.Logger;
 
 @Path("/api/admin/memory")
 @Consumes(MediaType.APPLICATION_JSON)
-@RolesAllowed("admin")
+@RolesAllowed(DevtownRoles.ADMIN)
 public class MemoryAdminResource {
 
     private static final Logger LOG = Logger.getLogger(MemoryAdminResource.class);

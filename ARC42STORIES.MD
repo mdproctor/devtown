@@ -347,7 +347,7 @@ These have either occurred in devtown or are the most likely mistakes when exten
 
 ### Security
 
-REST layer: `@RolesAllowed` can be added to `PrReviewResource.review()` without structural change — auth-retrofit ready by design.
+Default-deny security model (devtown#90): `quarkus.security.jaxrs.deny-unannotated-endpoints=true` — augmentation adds `@DenyAll` to unannotated JAX-RS endpoints (403 at runtime). `casehub-platform-oidc` provides `OidcCurrentPrincipal @RequestScoped` displacing `MockCurrentPrincipal @DefaultBean`. All REST endpoints carry `@RolesAllowed(DevtownRoles.ADMIN)` or `@PermitAll`. MCP transport gated via path-based `quarkus.http.auth.permission.mcp.policy=authenticated`. Tenant isolation uses `CurrentPrincipal.tenancyId()` — no caller-controlled `@QueryParam`.
 
 ### Observability
 
