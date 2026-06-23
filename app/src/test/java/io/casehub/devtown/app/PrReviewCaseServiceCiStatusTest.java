@@ -1,6 +1,8 @@
 package io.casehub.devtown.app;
 
 import io.casehub.devtown.app.mcp.PrReviewCaseTracker;
+import io.casehub.devtown.domain.CiStatusClient;
+import io.casehub.devtown.domain.CombinedCiStatus;
 import io.casehub.devtown.review.LifecycleResult;
 import io.casehub.devtown.review.PrPayload;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +21,7 @@ class PrReviewCaseServiceCiStatusTest {
 
     private PrReviewCaseTracker tracker;
     private PrReviewCaseHub caseHub;
+    private CiStatusClient ciStatusClient;
     private PrReviewCaseService service;
     private UUID caseId;
 
@@ -35,9 +38,12 @@ class PrReviewCaseServiceCiStatusTest {
         when(caseHub.query(eq(caseId), eq("pr.headSha"), eq(String.class)))
             .thenReturn(CompletableFuture.completedFuture("sha123"));
 
+        ciStatusClient = mock(CiStatusClient.class);
+
         service = new PrReviewCaseService();
         service.caseHub = caseHub;
         service.caseTracker = tracker;
+        service.ciStatusClient = ciStatusClient;
         service.ciMode = "external";
     }
 
@@ -45,6 +51,7 @@ class PrReviewCaseServiceCiStatusTest {
     void signalCiStatus_noActiveCase_returnsNoActiveCase() {
         var result = service.signalCiStatus("casehubio/other", 99, "sha123", 1001, "success");
         assertThat(result).isEqualTo(LifecycleResult.NO_ACTIVE_CASE);
+        verifyNoInteractions(ciStatusClient);
     }
 
     @Test
@@ -52,43 +59,73 @@ class PrReviewCaseServiceCiStatusTest {
         var result = service.signalCiStatus("casehubio/devtown", 42, "oldsha", 1001, "success");
         assertThat(result).isEqualTo(LifecycleResult.STALE_EVENT);
         verify(caseHub, never()).signal(eq(caseId), eq("ci.status"), any());
+        verifyNoInteractions(ciStatusClient);
     }
 
     @Test
-    void signalCiStatus_success_signalsPassingAndWritesSuite() {
+    void signalCiStatus_githubConfirmsPassing() {
+        when(ciStatusClient.getCombinedStatus("casehubio", "devtown", "sha123"))
+            .thenReturn(new CombinedCiStatus.Passing());
+
         var result = service.signalCiStatus("casehubio/devtown", 42, "sha123", 1001, "success");
+
         assertThat(result).isEqualTo(LifecycleResult.UPDATED);
-        verify(caseHub).signal(eq(caseId), eq("ci.suites.1001"), any(Map.class));
         verify(caseHub).signal(caseId, "ci.status", "passing");
     }
 
     @Test
-    void signalCiStatus_failure_signalsFailing() {
-        service.signalCiStatus("casehubio/devtown", 42, "sha123", 1001, "failure");
+    void signalCiStatus_githubSaysPending() {
+        when(ciStatusClient.getCombinedStatus("casehubio", "devtown", "sha123"))
+            .thenReturn(new CombinedCiStatus.Pending(1, 3));
+
+        var result = service.signalCiStatus("casehubio/devtown", 42, "sha123", 1001, "success");
+
+        assertThat(result).isEqualTo(LifecycleResult.UPDATED);
+        verify(caseHub, never()).signal(eq(caseId), eq("ci.status"), any());
+    }
+
+    @Test
+    void signalCiStatus_githubConfirmsFailing() {
+        when(ciStatusClient.getCombinedStatus("casehubio", "devtown", "sha123"))
+            .thenReturn(new CombinedCiStatus.Failing("1 of 3 suites failed"));
+
+        var result = service.signalCiStatus("casehubio/devtown", 42, "sha123", 1001, "failure");
+
+        assertThat(result).isEqualTo(LifecycleResult.UPDATED);
         verify(caseHub).signal(caseId, "ci.status", "failing");
     }
 
     @Test
-    void signalCiStatus_secondSuiteSuccess_afterFirstSuccess_signalsPassing() {
-        service.signalCiStatus("casehubio/devtown", 42, "sha123", 1001, "success");
-        service.signalCiStatus("casehubio/devtown", 42, "sha123", 1002, "success");
-        verify(caseHub, times(2)).signal(caseId, "ci.status", "passing");
+    void signalCiStatus_githubUnavailable() {
+        when(ciStatusClient.getCombinedStatus("casehubio", "devtown", "sha123"))
+            .thenReturn(new CombinedCiStatus.Unavailable("api error: HTTP 403"));
+
+        var result = service.signalCiStatus("casehubio/devtown", 42, "sha123", 1001, "success");
+
+        assertThat(result).isEqualTo(LifecycleResult.UPDATED);
+        verify(caseHub, never()).signal(eq(caseId), eq("ci.status"), any());
     }
 
     @Test
-    void signalCiStatus_secondSuiteFailure_afterFirstSuccess_signalsFailing() {
-        service.signalCiStatus("casehubio/devtown", 42, "sha123", 1001, "success");
-        service.signalCiStatus("casehubio/devtown", 42, "sha123", 1002, "failure");
-        verify(caseHub).signal(caseId, "ci.status", "passing");
-        verify(caseHub).signal(caseId, "ci.status", "failing");
-    }
+    void signalCiStatus_alwaysRecordsSuiteRegardlessOfCombinedStatus() {
+        var variants = List.<CombinedCiStatus>of(
+            new CombinedCiStatus.Passing(),
+            new CombinedCiStatus.Pending(1, 3),
+            new CombinedCiStatus.Failing("1 of 3 failed"),
+            new CombinedCiStatus.Unavailable("network error")
+        );
 
-    @Test
-    void signalCiStatus_successAfterFailure_stillFailing_stickyPolicy() {
-        service.signalCiStatus("casehubio/devtown", 42, "sha123", 1001, "failure");
-        service.signalCiStatus("casehubio/devtown", 42, "sha123", 1002, "success");
-        verify(caseHub, times(2)).signal(caseId, "ci.status", "failing");
-        verify(caseHub, never()).signal(caseId, "ci.status", "passing");
+        long suiteId = 1001;
+        for (var variant : variants) {
+            setUp();
+            when(ciStatusClient.getCombinedStatus("casehubio", "devtown", "sha123"))
+                .thenReturn(variant);
+
+            service.signalCiStatus("casehubio/devtown", 42, "sha123", suiteId, "success");
+
+            verify(caseHub).signal(eq(caseId), eq("ci.suites." + suiteId), any(Map.class));
+            suiteId++;
+        }
     }
 
     @Test

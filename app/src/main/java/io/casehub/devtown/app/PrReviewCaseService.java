@@ -1,6 +1,8 @@
 package io.casehub.devtown.app;
 
 import io.casehub.devtown.app.mcp.PrReviewCaseTracker;
+import io.casehub.devtown.domain.CiStatusClient;
+import io.casehub.devtown.domain.CombinedCiStatus;
 import io.casehub.devtown.review.LifecycleResult;
 import io.casehub.devtown.review.PrPayload;
 import io.casehub.devtown.review.PrReviewApplicationService;
@@ -37,6 +39,9 @@ public class PrReviewCaseService implements PrReviewApplicationService {
     @Inject
     CurrentPrincipal principal;
 
+    @Inject
+    CiStatusClient ciStatusClient;
+
     @ConfigProperty(name = "devtown.policy.human-approval-threshold", defaultValue = "500")
     int humanApprovalThreshold;
 
@@ -48,8 +53,6 @@ public class PrReviewCaseService implements PrReviewApplicationService {
 
     @ConfigProperty(name = "devtown.ci.mode", defaultValue = "external")
     String ciMode;
-
-    private final java.util.concurrent.ConcurrentHashMap<UUID, java.util.concurrent.ConcurrentHashMap<Long, String>> ciSuiteResults = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Override
     public PrReviewOutcome startReview(PrPayload pr) {
@@ -110,8 +113,6 @@ public class PrReviewCaseService implements PrReviewApplicationService {
         caseHub.signal(caseId, "testCoverage", null);
         caseHub.signal(caseId, "performanceAnalysis", null);
 
-        ciSuiteResults.remove(caseId);
-
         if ("external".equals(ciMode)) {
             caseHub.signal(caseId, "ci", Map.of("status", "pending"));
         } else {
@@ -143,21 +144,17 @@ public class PrReviewCaseService implements PrReviewApplicationService {
         String currentSha = caseHub.query(caseId, "pr.headSha", String.class).toCompletableFuture().join();
         if (!headSha.equals(currentSha)) return LifecycleResult.STALE_EVENT;
 
-        var suites = ciSuiteResults.computeIfAbsent(caseId, k -> new java.util.concurrent.ConcurrentHashMap<>());
-        suites.put(suiteId, conclusion);
-
         caseHub.signal(caseId, "ci.suites." + suiteId, Map.of(
             "conclusion", conclusion,
             "completedAt", java.time.Instant.now().toString()
         ));
 
-        boolean anyFailed = suites.values().stream().anyMatch(c -> !"success".equals(c));
-        boolean allSuccess = suites.values().stream().allMatch("success"::equals);
-
-        if (anyFailed) {
-            caseHub.signal(caseId, "ci.status", "failing");
-        } else if (allSuccess) {
-            caseHub.signal(caseId, "ci.status", "passing");
+        String[] parts = repo.split("/");
+        switch (ciStatusClient.getCombinedStatus(parts[0], parts[1], headSha)) {
+            case CombinedCiStatus.Passing() -> caseHub.signal(caseId, "ci.status", "passing");
+            case CombinedCiStatus.Failing(var summary) -> caseHub.signal(caseId, "ci.status", "failing");
+            case CombinedCiStatus.Pending(var completed, var total) -> { }
+            case CombinedCiStatus.Unavailable(var reason) -> { }
         }
 
         return LifecycleResult.UPDATED;
