@@ -4,7 +4,11 @@ import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.event.CaseEventLogRecord;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.devtown.app.MergeQueueService;
 import io.casehub.devtown.app.PrReviewCaseHub;
+import io.casehub.devtown.queue.Batch;
+import io.casehub.devtown.queue.PriorityLane;
+import io.casehub.devtown.queue.QueuedPr;
 import io.casehub.devtown.review.PrPayload;
 import io.casehub.ledger.runtime.service.LedgerProvExportService;
 import io.casehub.ledger.runtime.service.TrustGateService;
@@ -63,6 +67,9 @@ class DevtownMcpToolsTest {
 
     @Mock
     Instance<io.casehub.work.runtime.repository.WorkItemStore> workItemStoreInstance;
+
+    @Mock
+    MergeQueueService mergeQueueService;
 
     @Mock
     PrReviewCaseHub caseHub;
@@ -212,6 +219,7 @@ class DevtownMcpToolsTest {
         when(tracker.stalledCases(60)).thenReturn(List.of(stalledCase));
         when(commitmentStore.findExpiredBefore(any(Instant.class))).thenReturn(List.of());
         when(tracker.recentEvents(100, null)).thenReturn(List.of());
+        when(mergeQueueService.queuedPrs()).thenReturn(List.of());
 
         List<DevtownMcpTools.Problem> problems = tools.listProblems(60);
 
@@ -235,6 +243,7 @@ class DevtownMcpToolsTest {
         when(tracker.stalledCases(60)).thenReturn(List.of());
         when(commitmentStore.findExpiredBefore(any(Instant.class))).thenReturn(List.of(commitment));
         when(tracker.recentEvents(100, null)).thenReturn(List.of());
+        when(mergeQueueService.queuedPrs()).thenReturn(List.of());
 
         List<DevtownMcpTools.Problem> problems = tools.listProblems(60);
 
@@ -259,6 +268,7 @@ class DevtownMcpToolsTest {
         when(tracker.stalledCases(60)).thenReturn(List.of());
         when(commitmentStore.findExpiredBefore(any(Instant.class))).thenReturn(List.of());
         when(tracker.recentEvents(100, null)).thenReturn(List.of(failedEvent));
+        when(mergeQueueService.queuedPrs()).thenReturn(List.of());
 
         List<DevtownMcpTools.Problem> problems = tools.listProblems(60);
 
@@ -453,6 +463,206 @@ class DevtownMcpToolsTest {
 
         assertThat(result).isEqualTo(provJson);
         verify(provExportService).exportSubject(testCaseId, TenancyConstants.DEFAULT_TENANT_ID);
+    }
+
+    // ==================== Merge Queue Read Tools ====================
+
+    @Test
+    void getMergeQueue_emptyQueue_returnsZeroCounts() {
+        when(mergeQueueService.queuedPrs()).thenReturn(List.of());
+        when(mergeQueueService.activeBatches()).thenReturn(Map.of());
+
+        DevtownMcpTools.MergeQueueStatus status = tools.getMergeQueue();
+
+        assertThat(status.queuedCount()).isZero();
+        assertThat(status.activeBatchCount()).isZero();
+        assertThat(status.queuedPrs()).isEmpty();
+        assertThat(status.activeBatches()).isEmpty();
+    }
+
+    @Test
+    void getMergeQueue_withQueuedPrsAndBatches_returnsCorrectState() {
+        Instant enqueued = Instant.now().minus(30, ChronoUnit.MINUTES);
+        QueuedPr pr = new QueuedPr(101, "sha1", "alice", 0.85, PriorityLane.HIGH, enqueued, java.util.Set.of());
+
+        UUID batchCaseId = UUID.randomUUID();
+        Batch batch = new Batch("batch-1", List.of(pr), "main", "ROUTINE", "trust-weighted");
+
+        when(mergeQueueService.queuedPrs()).thenReturn(List.of(pr));
+        when(mergeQueueService.activeBatches()).thenReturn(Map.of(batchCaseId, batch));
+
+        DevtownMcpTools.MergeQueueStatus status = tools.getMergeQueue();
+
+        assertThat(status.queuedCount()).isEqualTo(1);
+        assertThat(status.activeBatchCount()).isEqualTo(1);
+        assertThat(status.queuedPrs()).hasSize(1);
+        assertThat(status.queuedPrs().get(0).number()).isEqualTo(101);
+        assertThat(status.queuedPrs().get(0).priorityLane()).isEqualTo("HIGH");
+        assertThat(status.queuedPrs().get(0).waitMinutes()).isGreaterThanOrEqualTo(29);
+        assertThat(status.activeBatches()).hasSize(1);
+        assertThat(status.activeBatches().get(0).batchId()).isEqualTo("batch-1");
+    }
+
+    @Test
+    void getBatchStatus_unknownBatch_throws() {
+        UUID unknownId = UUID.randomUUID();
+        when(mergeQueueService.activeBatches()).thenReturn(Map.of());
+
+        assertThatThrownBy(() -> tools.getBatchStatus(unknownId.toString()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("No active batch found");
+    }
+
+    @Test
+    void getBatchStatus_knownBatch_returnsDetail() {
+        UUID batchCaseId = UUID.randomUUID();
+        QueuedPr pr1 = new QueuedPr(10, "sha-a", "bob", 0.7, PriorityLane.NORMAL, Instant.now(), java.util.Set.of());
+        QueuedPr pr2 = new QueuedPr(11, "sha-b", "carol", 0.9, PriorityLane.CRITICAL, Instant.now(), java.util.Set.of());
+        Batch batch = new Batch("batch-2", List.of(pr1, pr2), "main", "HIGH_RISK", "trust-weighted");
+
+        when(mergeQueueService.activeBatches()).thenReturn(Map.of(batchCaseId, batch));
+
+        DevtownMcpTools.BatchStatus status = tools.getBatchStatus(batchCaseId.toString());
+
+        assertThat(status.batchId()).isEqualTo("batch-2");
+        assertThat(status.caseId()).isEqualTo(batchCaseId);
+        assertThat(status.prs()).hasSize(2);
+        assertThat(status.prs().get(0).number()).isEqualTo(10);
+        assertThat(status.prs().get(1).lane()).isEqualTo("CRITICAL");
+        assertThat(status.riskLevel()).isEqualTo("HIGH_RISK");
+        assertThat(status.bisectionStrategy()).isEqualTo("trust-weighted");
+    }
+
+    @Test
+    void getMergeQueueMetrics_emptyQueue_returnsZeros() {
+        when(mergeQueueService.queuedPrs()).thenReturn(List.of());
+        when(mergeQueueService.activeBatches()).thenReturn(Map.of());
+
+        DevtownMcpTools.MergeQueueMetrics metrics = tools.getMergeQueueMetrics();
+
+        assertThat(metrics.queueDepth()).isZero();
+        assertThat(metrics.activeBatches()).isZero();
+        assertThat(metrics.oldestWaitMinutes()).isZero();
+        assertThat(metrics.avgTrustScore()).isZero();
+        assertThat(metrics.countsByLane()).isEmpty();
+    }
+
+    @Test
+    void getMergeQueueMetrics_withPrs_computesCorrectly() {
+        Instant old = Instant.now().minus(60, ChronoUnit.MINUTES);
+        Instant recent = Instant.now().minus(10, ChronoUnit.MINUTES);
+        QueuedPr pr1 = new QueuedPr(1, "sha1", "alice", 0.6, PriorityLane.NORMAL, old, java.util.Set.of());
+        QueuedPr pr2 = new QueuedPr(2, "sha2", "bob", 0.8, PriorityLane.HIGH, recent, java.util.Set.of());
+
+        when(mergeQueueService.queuedPrs()).thenReturn(List.of(pr1, pr2));
+        when(mergeQueueService.activeBatches()).thenReturn(Map.of());
+
+        DevtownMcpTools.MergeQueueMetrics metrics = tools.getMergeQueueMetrics();
+
+        assertThat(metrics.queueDepth()).isEqualTo(2);
+        assertThat(metrics.oldestWaitMinutes()).isGreaterThanOrEqualTo(59);
+        assertThat(metrics.avgTrustScore()).isCloseTo(0.7, org.assertj.core.data.Offset.offset(0.01));
+        assertThat(metrics.countsByLane()).containsEntry("NORMAL", 1);
+        assertThat(metrics.countsByLane()).containsEntry("HIGH", 1);
+    }
+
+    // ==================== Merge Queue Write Tools ====================
+
+    @Test
+    void enqueuePr_validInputs_enqueuesSuccessfully() {
+        DevtownMcpTools.EnqueueResult result = tools.enqueuePr(
+            "casehubio/devtown", 99, "deadbeef", "alice", 0.75, "HIGH"
+        );
+
+        assertThat(result.prNumber()).isEqualTo(99);
+        assertThat(result.lane()).isEqualTo("HIGH");
+        assertThat(result.status()).isEqualTo("ENQUEUED");
+        verify(mergeQueueService).enqueue(argThat(pr ->
+            pr.number() == 99 && pr.headSha().equals("deadbeef") && pr.lane() == PriorityLane.HIGH
+        ));
+    }
+
+    @Test
+    void enqueuePr_nullPriority_defaultsToNormal() {
+        DevtownMcpTools.EnqueueResult result = tools.enqueuePr(
+            "casehubio/devtown", 50, "abc123", "bob", 0.5, null
+        );
+
+        assertThat(result.lane()).isEqualTo("NORMAL");
+        verify(mergeQueueService).enqueue(argThat(pr -> pr.lane() == PriorityLane.NORMAL));
+    }
+
+    @Test
+    void enqueuePr_blankRepo_throws() {
+        assertThatThrownBy(() -> tools.enqueuePr("", 1, "sha", "alice", 0.5, null))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("repo is required");
+    }
+
+    @Test
+    void enqueuePr_invalidTrustScore_throws() {
+        assertThatThrownBy(() -> tools.enqueuePr("repo", 1, "sha", "alice", 1.5, null))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("trustScore");
+    }
+
+    @Test
+    void dequeuePr_existing_returnsRemoved() {
+        when(mergeQueueService.dequeue(42)).thenReturn(true);
+
+        DevtownMcpTools.DequeueResult result = tools.dequeuePr("casehubio/devtown", 42);
+
+        assertThat(result.prNumber()).isEqualTo(42);
+        assertThat(result.removed()).isTrue();
+        assertThat(result.status()).isEqualTo("REMOVED");
+    }
+
+    @Test
+    void dequeuePr_notFound_returnsNotFound() {
+        when(mergeQueueService.dequeue(999)).thenReturn(false);
+
+        DevtownMcpTools.DequeueResult result = tools.dequeuePr("casehubio/devtown", 999);
+
+        assertThat(result.removed()).isFalse();
+        assertThat(result.status()).isEqualTo("NOT_FOUND");
+    }
+
+    @Test
+    void dequeuePr_blankRepo_throws() {
+        assertThatThrownBy(() -> tools.dequeuePr("", 1))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("repo is required");
+    }
+
+    // ==================== QUEUE_SLA_BREACH in listProblems ====================
+
+    @Test
+    void listProblems_detectsQueueSlaBreaches() throws Exception {
+        // Set SLA threshold (not injected by @InjectMocks)
+        java.lang.reflect.Field slaField = DevtownMcpTools.class.getDeclaredField("queueSlaMinutes");
+        slaField.setAccessible(true);
+        slaField.setInt(tools, 120);
+
+        // PR queued 180 minutes ago — exceeds 120-minute SLA
+        Instant longAgo = Instant.now().minus(180, ChronoUnit.MINUTES);
+        QueuedPr breachPr = new QueuedPr(77, "sha-old", "dave", 0.5, PriorityLane.NORMAL, longAgo, java.util.Set.of());
+
+        // PR queued 10 minutes ago — within SLA
+        Instant recent = Instant.now().minus(10, ChronoUnit.MINUTES);
+        QueuedPr okPr = new QueuedPr(78, "sha-new", "eve", 0.8, PriorityLane.HIGH, recent, java.util.Set.of());
+
+        when(tracker.stalledCases(60)).thenReturn(List.of());
+        when(commitmentStore.findExpiredBefore(any(Instant.class))).thenReturn(List.of());
+        when(tracker.recentEvents(100, null)).thenReturn(List.of());
+        when(mergeQueueService.queuedPrs()).thenReturn(List.of(breachPr, okPr));
+
+        List<DevtownMcpTools.Problem> problems = tools.listProblems(60);
+
+        assertThat(problems).hasSize(1);
+        assertThat(problems.get(0).category()).isEqualTo("queue_sla_breach");
+        assertThat(problems.get(0).severity()).isEqualTo("warning");
+        assertThat(problems.get(0).description()).contains("PR #77");
+        assertThat(problems.get(0).actorId()).isEqualTo("dave");
     }
 
     // Helper to create CaseEventLogRecord

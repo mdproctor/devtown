@@ -1,6 +1,5 @@
 package io.casehub.devtown.queue;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -15,15 +14,15 @@ public class BinarySplitStrategy implements BisectionSplitStrategy {
         }
 
         int midpoint = prs.size() / 2;
-        List<Map<String, Object>> leftPrs = new ArrayList<>(prs.subList(0, midpoint));
-        List<Map<String, Object>> rightPrs = new ArrayList<>(prs.subList(midpoint, prs.size()));
+        List<Map<String, Object>> leftPrs = List.copyOf(prs.subList(0, midpoint));
+        List<Map<String, Object>> rightPrs = List.copyOf(prs.subList(midpoint, prs.size()));
 
         var left = new BatchSlice(
-            batchId + "-L", targetBranch, List.copyOf(leftPrs), leftPrs.size(),
+            batchId + "-L", targetBranch, leftPrs, leftPrs.size(),
             batchId, bisectionDepth, bisectionStrategy, riskLevel
         );
         var right = new BatchSlice(
-            batchId + "-R", targetBranch, List.copyOf(rightPrs), rightPrs.size(),
+            batchId + "-R", targetBranch, rightPrs, rightPrs.size(),
             batchId, bisectionDepth, bisectionStrategy, riskLevel
         );
         return new SplitResult(left, right);

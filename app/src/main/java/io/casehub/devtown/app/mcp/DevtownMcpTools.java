@@ -3,11 +3,15 @@ package io.casehub.devtown.app.mcp;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.event.CaseEventLogRecord;
 import io.casehub.api.model.event.CaseHubEventType;
+import io.casehub.devtown.app.MergeQueueService;
 import io.casehub.devtown.app.PrReviewCaseHub;
 import io.casehub.devtown.app.ledger.IncidentFeedbackService;
 import io.casehub.devtown.domain.IncidentFeedback;
 import io.casehub.devtown.domain.IncidentFeedbackResult;
 import io.casehub.devtown.domain.IncidentSeverity;
+import io.casehub.devtown.queue.Batch;
+import io.casehub.devtown.queue.PriorityLane;
+import io.casehub.devtown.queue.QueuedPr;
 import io.casehub.devtown.review.PrPayload;
 import io.casehub.ledger.runtime.service.LedgerProvExportService;
 import io.casehub.ledger.runtime.service.TrustGateService;
@@ -20,7 +24,7 @@ import io.casehub.devtown.domain.memory.DevtownMemoryDomain;
 import io.casehub.devtown.domain.memory.ModulePathNormalizer;
 import io.casehub.qhorus.runtime.message.Commitment;
 import io.casehub.qhorus.runtime.store.CommitmentStore;
-import io.casehub.work.runtime.model.WorkItemStatus;
+import io.casehub.work.api.WorkItemStatus;
 import io.casehub.work.runtime.repository.WorkItemQuery;
 import io.casehub.work.runtime.repository.WorkItemStore;
 import io.quarkiverse.mcp.server.Tool;
@@ -30,12 +34,14 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -84,6 +90,9 @@ public class DevtownMcpTools {
     @Inject
     IncidentFeedbackService incidentFeedbackService;
 
+    @Inject
+    MergeQueueService mergeQueueService;
+
     @ConfigProperty(name = "devtown.policy.human-approval-threshold", defaultValue = "500")
     int humanApprovalThreshold;
 
@@ -92,6 +101,9 @@ public class DevtownMcpTools {
 
     @ConfigProperty(name = "devtown.policy.require-senior-approval", defaultValue = "false")
     boolean requireSeniorApproval;
+
+    @ConfigProperty(name = "devtown.queue.sla-minutes", defaultValue = "120")
+    int queueSlaMinutes;
 
     // ==================== Response Records ====================
 
@@ -161,6 +173,48 @@ public class DevtownMcpTools {
     public record RerouteResult(UUID oldCaseId, UUID newCaseId) {}
 
     public record ForceCompleteResult(UUID caseId, String capability, String outcome, String status) {}
+
+    public record MergeQueueStatus(
+        int queuedCount,
+        int activeBatchCount,
+        List<QueuedPrEntry> queuedPrs,
+        List<ActiveBatchEntry> activeBatches
+    ) {}
+
+    public record QueuedPrEntry(
+        int number,
+        String headSha,
+        String author,
+        double trustScore,
+        String priorityLane,
+        Instant enqueuedAt,
+        long waitMinutes,
+        Set<Integer> dependsOn
+    ) {}
+
+    public record ActiveBatchEntry(UUID caseId, String batchId, int prCount, String riskLevel) {}
+
+    public record BatchStatus(
+        String batchId,
+        UUID caseId,
+        List<BatchPrEntry> prs,
+        String riskLevel,
+        String bisectionStrategy
+    ) {}
+
+    public record BatchPrEntry(int number, String headSha, String author, double trustScore, String lane) {}
+
+    public record MergeQueueMetrics(
+        int queueDepth,
+        int activeBatches,
+        long oldestWaitMinutes,
+        double avgTrustScore,
+        Map<String, Integer> countsByLane
+    ) {}
+
+    public record EnqueueResult(int prNumber, String lane, String status) {}
+
+    public record DequeueResult(int prNumber, boolean removed, String status) {}
 
     // ==================== Read Tools ====================
 
@@ -252,7 +306,7 @@ public class DevtownMcpTools {
 
     @Tool(
         name = "list_problems",
-        description = "List detected problems: stalled cases, expired commitments, failed workers"
+        description = "List detected problems: stalled cases, expired commitments, failed workers, queue SLA breaches"
     )
     public List<Problem> listProblems(
         @ToolArg(name = "threshold_minutes", description = "Stall threshold in minutes", required = false) Integer thresholdMinutes
@@ -299,6 +353,23 @@ public class DevtownMcpTools {
                     event.caseId(),
                     event.actorId(),
                     event.timestamp()
+                ));
+            }
+        }
+
+        // Queue SLA breaches — PRs waiting longer than the configured SLA
+        Instant now2 = Instant.now();
+        for (QueuedPr pr : mergeQueueService.queuedPrs()) {
+            long waitMinutes = Duration.between(pr.enqueuedAt(), now2).toMinutes();
+            if (waitMinutes > queueSlaMinutes) {
+                problems.add(new Problem(
+                    "queue_sla_breach",
+                    "warning",
+                    String.format("PR #%d has been queued for %d minutes (SLA: %d minutes)",
+                        pr.number(), waitMinutes, queueSlaMinutes),
+                    null,
+                    pr.author(),
+                    pr.enqueuedAt()
                 ));
             }
         }
@@ -464,6 +535,83 @@ public class DevtownMcpTools {
         return provExportService.exportSubject(caseId, principal.tenancyId());
     }
 
+    @Tool(
+        name = "get_merge_queue",
+        description = "Get current merge queue state: queued PRs with priority scores, wait times, dependencies, and active batches"
+    )
+    public MergeQueueStatus getMergeQueue() {
+        Instant now = Instant.now();
+        List<QueuedPr> queued = mergeQueueService.queuedPrs();
+        Map<UUID, Batch> batches = mergeQueueService.activeBatches();
+
+        List<QueuedPrEntry> prEntries = queued.stream()
+            .map(pr -> new QueuedPrEntry(
+                pr.number(),
+                pr.headSha(),
+                pr.author(),
+                pr.trustScore(),
+                pr.lane().name(),
+                pr.enqueuedAt(),
+                Duration.between(pr.enqueuedAt(), now).toMinutes(),
+                pr.dependsOn()
+            ))
+            .toList();
+
+        List<ActiveBatchEntry> batchEntries = batches.entrySet().stream()
+            .map(e -> new ActiveBatchEntry(e.getKey(), e.getValue().id(), e.getValue().size(), e.getValue().riskLevel()))
+            .toList();
+
+        return new MergeQueueStatus(queued.size(), batches.size(), prEntries, batchEntries);
+    }
+
+    @Tool(
+        name = "get_batch_status",
+        description = "Get batch state: PRs in the batch, risk level, bisection strategy"
+    )
+    public BatchStatus getBatchStatus(
+        @ToolArg(name = "batch_case_id", description = "Case UUID of the batch", required = true) String batchCaseIdStr
+    ) {
+        UUID batchCaseId = UUID.fromString(batchCaseIdStr);
+        Map<UUID, Batch> batches = mergeQueueService.activeBatches();
+        Batch batch = batches.get(batchCaseId);
+        if (batch == null) {
+            throw new IllegalArgumentException("No active batch found for case: " + batchCaseId);
+        }
+
+        List<BatchPrEntry> prEntries = batch.prs().stream()
+            .map(pr -> new BatchPrEntry(pr.number(), pr.headSha(), pr.author(), pr.trustScore(), pr.lane().name()))
+            .toList();
+
+        return new BatchStatus(batch.id(), batchCaseId, prEntries, batch.riskLevel(), batch.bisectionStrategy());
+    }
+
+    @Tool(
+        name = "get_merge_queue_metrics",
+        description = "Get operational metrics: queue depth, active batches, oldest wait time, average trust score, lane distribution"
+    )
+    public MergeQueueMetrics getMergeQueueMetrics() {
+        Instant now = Instant.now();
+        List<QueuedPr> queued = mergeQueueService.queuedPrs();
+        Map<UUID, Batch> batches = mergeQueueService.activeBatches();
+
+        long oldestWaitMinutes = queued.stream()
+            .mapToLong(pr -> Duration.between(pr.enqueuedAt(), now).toMinutes())
+            .max()
+            .orElse(0);
+
+        double avgTrust = queued.stream()
+            .mapToDouble(QueuedPr::trustScore)
+            .average()
+            .orElse(0.0);
+
+        Map<String, Integer> countsByLane = new HashMap<>();
+        for (QueuedPr pr : queued) {
+            countsByLane.merge(pr.lane().name(), 1, Integer::sum);
+        }
+
+        return new MergeQueueMetrics(queued.size(), batches.size(), oldestWaitMinutes, avgTrust, countsByLane);
+    }
+
     // ==================== Write Tools ====================
 
     @Tool(
@@ -567,6 +715,55 @@ public class DevtownMcpTools {
         caseHubRuntime.signal(caseId, contextKey, syntheticResult);
 
         return new ForceCompleteResult(caseId, capability, outcome, "FORCE_COMPLETED");
+    }
+
+    @Tool(
+        name = "enqueue_pr",
+        description = "Add a PR to the merge queue with priority and trust score"
+    )
+    public EnqueueResult enqueuePr(
+        @ToolArg(name = "repo", description = "Repository slug (e.g. casehubio/devtown)") String repo,
+        @ToolArg(name = "pr_number", description = "PR number") int prNumber,
+        @ToolArg(name = "head_sha", description = "Head commit SHA") String headSha,
+        @ToolArg(name = "author", description = "PR author") String author,
+        @ToolArg(name = "trust_score", description = "Author trust score [0.0, 1.0]") double trustScore,
+        @ToolArg(name = "priority", description = "Priority lane: NORMAL, HIGH, or CRITICAL", required = false) String priority
+    ) {
+        if (repo == null || repo.isBlank()) {
+            throw new IllegalArgumentException("repo is required");
+        }
+        if (headSha == null || headSha.isBlank()) {
+            throw new IllegalArgumentException("head_sha is required");
+        }
+        if (author == null || author.isBlank()) {
+            throw new IllegalArgumentException("author is required");
+        }
+
+        PriorityLane lane = PriorityLane.NORMAL;
+        if (priority != null && !priority.isBlank()) {
+            lane = PriorityLane.valueOf(priority.toUpperCase());
+        }
+
+        QueuedPr pr = new QueuedPr(prNumber, headSha, author, trustScore, lane, Instant.now(), Set.of());
+        mergeQueueService.enqueue(pr);
+
+        return new EnqueueResult(prNumber, lane.name(), "ENQUEUED");
+    }
+
+    @Tool(
+        name = "dequeue_pr",
+        description = "Remove a PR from the merge queue"
+    )
+    public DequeueResult dequeuePr(
+        @ToolArg(name = "repo", description = "Repository slug (e.g. casehubio/devtown)") String repo,
+        @ToolArg(name = "pr_number", description = "PR number") int prNumber
+    ) {
+        if (repo == null || repo.isBlank()) {
+            throw new IllegalArgumentException("repo is required");
+        }
+
+        boolean removed = mergeQueueService.dequeue(prNumber);
+        return new DequeueResult(prNumber, removed, removed ? "REMOVED" : "NOT_FOUND");
     }
 
     @Tool(

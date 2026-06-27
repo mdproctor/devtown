@@ -91,6 +91,18 @@ public class MergeQueueService {
         return activeBatches.size();
     }
 
+    public List<QueuedPr> queuedPrs() {
+        return List.copyOf(queue);
+    }
+
+    public Map<UUID, Batch> activeBatches() {
+        return Map.copyOf(activeBatches);
+    }
+
+    public boolean dequeue(int prNumber) {
+        return queue.removeIf(pr -> pr.number() == prNumber);
+    }
+
     private UUID dispatchBatch(Batch batch) {
         var batchContext = new LinkedHashMap<String, Object>();
         var batchMap = new LinkedHashMap<String, Object>();
