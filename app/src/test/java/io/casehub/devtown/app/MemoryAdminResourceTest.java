@@ -2,9 +2,9 @@ package io.casehub.devtown.app;
 
 import io.casehub.devtown.domain.memory.DevtownMemoryDomain;
 import io.casehub.platform.api.identity.TenancyConstants;
-import io.casehub.platform.api.memory.CaseMemoryStore;
-import io.casehub.platform.api.memory.MemoryInput;
-import io.casehub.platform.api.memory.MemoryQuery;
+import io.casehub.neocortex.memory.CaseMemoryStore;
+import io.casehub.neocortex.memory.MemoryInput;
+import io.casehub.neocortex.memory.MemoryQuery;
 import io.casehub.platform.testing.FixedCurrentPrincipal;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
@@ -13,7 +13,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Handler;

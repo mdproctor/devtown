@@ -116,7 +116,7 @@ class HumanApprovalLifecycleTest {
                 .untilAsserted(() -> {
                     var instance = caseInstanceRepository
                             .findByUuid(caseId)
-                            .await().atMost(Duration.ofSeconds(2));
+                            ;
                     assertThat(instance).isNotNull();
                     Object outcome = instance.getCaseContext().getPath("humanApproval.outcome");
                     assertThat(outcome)
@@ -139,7 +139,7 @@ class HumanApprovalLifecycleTest {
                 .untilAsserted(() -> {
                     var instance = caseInstanceRepository
                             .findByUuid(caseId)
-                            .await().atMost(Duration.ofSeconds(2));
+                            ;
                     assertThat(instance).isNotNull();
                     assertThat(instance.getState()).isEqualTo(CaseStatus.COMPLETED);
                 });

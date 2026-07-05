@@ -1,33 +1,22 @@
 package io.casehub.devtown.app.mcp;
 
 import io.casehub.api.engine.CaseHubRuntime;
-import io.casehub.api.model.event.CaseEventLogRecord;
-import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.devtown.app.MergeQueueService;
 import io.casehub.devtown.app.PrReviewCaseHub;
+import io.casehub.devtown.app.governance.GovernanceQueryService;
 import io.casehub.devtown.app.ledger.IncidentFeedbackService;
 import io.casehub.devtown.domain.IncidentFeedback;
 import io.casehub.devtown.domain.IncidentFeedbackResult;
 import io.casehub.devtown.domain.IncidentSeverity;
-import io.casehub.devtown.merge.BatchRecord;
-import io.casehub.devtown.queue.Batch;
 import io.casehub.devtown.domain.queue.PriorityLane;
 import io.casehub.devtown.queue.QueuedPr;
-import io.casehub.devtown.review.PrPayload;
 import io.casehub.ledger.runtime.service.LedgerProvExportService;
-import io.casehub.ledger.runtime.service.TrustGateService;
-import io.casehub.ledger.runtime.service.federation.TrustExportService;
 import io.casehub.platform.api.identity.CurrentPrincipal;
-import io.casehub.platform.api.memory.CaseMemoryStore;
-import io.casehub.platform.api.memory.MemoryOrder;
-import io.casehub.platform.api.memory.MemoryQuery;
+import io.casehub.neocortex.memory.CaseMemoryStore;
+import io.casehub.neocortex.memory.MemoryOrder;
+import io.casehub.neocortex.memory.MemoryQuery;
 import io.casehub.devtown.domain.memory.DevtownMemoryDomain;
 import io.casehub.devtown.domain.memory.ModulePathNormalizer;
-import io.casehub.qhorus.runtime.message.Commitment;
-import io.casehub.qhorus.runtime.store.CommitmentStore;
-import io.casehub.work.api.WorkItemStatus;
-import io.casehub.work.runtime.repository.WorkItemQuery;
-import io.casehub.work.runtime.repository.WorkItemStore;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import io.quarkiverse.mcp.server.WrapBusinessError;
@@ -35,11 +24,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,14 +35,8 @@ import java.util.UUID;
 @WrapBusinessError({IllegalArgumentException.class, IllegalStateException.class})
 public class DevtownMcpTools {
 
-    private static final Map<String, String> CAPABILITY_CONTEXT_KEYS = Map.of(
-        "code-analysis", "codeAnalysis",
-        "security-review", "securityReview",
-        "architecture-review", "architectureReview",
-        "style-review", "styleCheck",
-        "test-coverage", "testCoverage",
-        "performance-analysis", "performanceAnalysis"
-    );
+    @Inject
+    GovernanceQueryService governanceQuery;
 
     @Inject
     PrReviewCaseTracker tracker;
@@ -65,22 +45,10 @@ public class DevtownMcpTools {
     CaseHubRuntime caseHubRuntime;
 
     @Inject
-    CommitmentStore commitmentStore;
-
-    @Inject
-    TrustGateService trustGateService;
-
-    @Inject
-    TrustExportService trustExportService;
-
-    @Inject
     LedgerProvExportService provExportService;
 
     @Inject
     Instance<CaseMemoryStore> memoryStoreInstance;
-
-    @Inject
-    Instance<WorkItemStore> workItemStoreInstance;
 
     @Inject
     PrReviewCaseHub caseHub;
@@ -103,62 +71,9 @@ public class DevtownMcpTools {
     @ConfigProperty(name = "devtown.policy.require-senior-approval", defaultValue = "false")
     boolean requireSeniorApproval;
 
-    @ConfigProperty(name = "devtown.queue.sla-minutes", defaultValue = "120")
-    int queueSlaMinutes;
-
     // ==================== Response Records ====================
-
-    public record QueueStatus(int total, Map<String, Integer> countsByStatus, List<ActiveReview> reviews) {}
-
-    public record ActiveReview(
-        UUID caseId,
-        String repo,
-        int prNumber,
-        String contributor,
-        int linesChanged,
-        String status,
-        Instant startedAt,
-        Instant lastEventAt
-    ) {}
-
-    public record ReviewDetail(
-        UUID caseId,
-        PrPayload pr,
-        List<EventEntry> timeline,
-        List<CapabilityStatus> capabilities
-    ) {}
-
-    public record EventEntry(Instant timestamp, String eventType, String actor, String summary) {}
-
-    public record CapabilityStatus(String name, String status, String outcome, Instant completedAt) {}
-
-    public record ReviewerHealth(
-        String reviewerId,
-        int openCommitments,
-        Map<String, Double> trustByCapability,
-        Map<String, Double> trustByDimension,
-        int totalDecisions,
-        List<RecentOutcome> recentOutcomes
-    ) {}
-
-    public record RecentOutcome(UUID caseId, String capability, String outcome, Instant timestamp) {}
-
-    public record Problem(
-        String category,
-        String severity,
-        String description,
-        UUID caseId,
-        String actorId,
-        Instant since
-    ) {}
-
-    public record SystemHealth(
-        int activeCases,
-        int fleetSize,
-        Map<String, Double> avgTrustByCapability,
-        int openCommitments,
-        int pendingWorkItems
-    ) {}
+    // Read method records now come from GovernanceQueryService
+    // Write method records stay here
 
     public record PriorDecision(
         UUID caseId,
@@ -175,45 +90,6 @@ public class DevtownMcpTools {
 
     public record ForceCompleteResult(UUID caseId, String capability, String outcome, String status) {}
 
-    public record MergeQueueStatus(
-        int queuedCount,
-        int activeBatchCount,
-        List<QueuedPrEntry> queuedPrs,
-        List<ActiveBatchEntry> activeBatches
-    ) {}
-
-    public record QueuedPrEntry(
-        int number,
-        String repository,
-        String headSha,
-        String author,
-        double trustScore,
-        String priorityLane,
-        Instant enqueuedAt,
-        long waitMinutes,
-        Set<Integer> dependsOn
-    ) {}
-
-    public record ActiveBatchEntry(UUID caseId, String batchId, int prCount, String riskLevel) {}
-
-    public record BatchStatus(
-        String batchId,
-        UUID caseId,
-        List<BatchPrEntry> prs,
-        String riskLevel,
-        String bisectionStrategy
-    ) {}
-
-    public record BatchPrEntry(int number, String repository, String headSha, String author, double trustScore, String lane) {}
-
-    public record MergeQueueMetrics(
-        int queueDepth,
-        int activeBatches,
-        long oldestWaitMinutes,
-        double avgTrustScore,
-        Map<String, Integer> countsByLane
-    ) {}
-
     public record EnqueueResult(int prNumber, String lane, String status) {}
 
     public record DequeueResult(int prNumber, boolean removed, String status) {}
@@ -224,29 +100,8 @@ public class DevtownMcpTools {
         name = "get_queue_status",
         description = "Get current PR review queue status with counts by status and active reviews"
     )
-    public QueueStatus getQueueStatus() {
-        List<CaseInfo> active = tracker.activeCases();
-        Map<String, Integer> countsByStatus = new HashMap<>();
-
-        List<ActiveReview> reviews = active.stream()
-            .map(c -> {
-                String statusStr = c.status().name();
-                countsByStatus.merge(statusStr, 1, Integer::sum);
-
-                return new ActiveReview(
-                    c.caseId(),
-                    c.payload().repo(),
-                    c.payload().prNumber(),
-                    c.payload().contributor(),
-                    c.payload().linesChanged(),
-                    statusStr,
-                    c.startedAt(),
-                    c.lastEventAt()
-                );
-            })
-            .toList();
-
-        return new QueueStatus(active.size(), countsByStatus, reviews);
+    public GovernanceQueryService.QueueStatus getQueueStatus() {
+        return governanceQuery.queueStatus();
     }
 
     @Tool(
@@ -259,231 +114,48 @@ public class DevtownMcpTools {
     ) {
         int effectiveLimit = limit != null ? limit : 50;
         Instant sinceTime = since != null ? Instant.parse(since) : null;
-        return tracker.recentEvents(effectiveLimit, sinceTime);
+        return governanceQuery.recentEvents(effectiveLimit, sinceTime);
     }
 
     @Tool(
         name = "get_system_health",
         description = "Get overall system health metrics across all cases and agents"
     )
-    public SystemHealth getSystemHealth() {
-        List<CaseInfo> active = tracker.activeCases();
-        List<Commitment> openCommitments = commitmentStore.findAllOpen();
-
-        // Fleet size from trust export (all agents with any trust score)
-        var trustExport = trustExportService.exportAll(0.0);
-        int fleetSize = trustExport.actors().size();
-
-        // Average trust by capability across fleet
-        Map<String, Double> avgTrustByCapability = new HashMap<>();
-        for (String capability : CAPABILITY_CONTEXT_KEYS.keySet()) {
-            double sum = 0.0;
-            int count = 0;
-            for (var actor : trustExport.actors()) {
-                var scores = trustGateService.allCapabilityScores(actor.actorId());
-                if (scores.containsKey(capability)) {
-                    sum += scores.get(capability);
-                    count++;
-                }
-            }
-            if (count > 0) {
-                avgTrustByCapability.put(capability, sum / count);
-            }
-        }
-
-        int pendingWorkItems = 0;
-        if (workItemStoreInstance.isResolvable()) {
-            pendingWorkItems = workItemStoreInstance.get()
-                .scan(WorkItemQuery.builder().status(WorkItemStatus.PENDING).build()).size();
-        }
-
-        return new SystemHealth(
-            active.size(),
-            fleetSize,
-            avgTrustByCapability,
-            openCommitments.size(),
-            pendingWorkItems
-        );
+    public GovernanceQueryService.SystemHealth getSystemHealth() {
+        return governanceQuery.systemHealth();
     }
 
     @Tool(
         name = "list_problems",
         description = "List detected problems: stalled cases, expired commitments, failed workers, queue SLA breaches"
     )
-    public List<Problem> listProblems(
+    public List<GovernanceQueryService.Problem> listProblems(
         @ToolArg(name = "threshold_minutes", description = "Stall threshold in minutes", required = false) Integer thresholdMinutes
     ) {
         int threshold = thresholdMinutes != null ? thresholdMinutes : 60;
-        List<Problem> problems = new ArrayList<>();
-
-        // Stalled cases
-        for (CaseInfo stalled : tracker.stalledCases(threshold)) {
-            problems.add(new Problem(
-                "stalled_case",
-                "warning",
-                String.format("PR review stalled for %s#%d — no progress for %d+ minutes",
-                    stalled.payload().repo(), stalled.payload().prNumber(), threshold),
-                stalled.caseId(),
-                null,
-                stalled.lastEventAt()
-            ));
-        }
-
-        // Expired commitments
-        Instant now = Instant.now();
-        for (Commitment expired : commitmentStore.findExpiredBefore(now)) {
-            problems.add(new Problem(
-                "expired_commitment",
-                "error",
-                String.format("Commitment expired: obligor=%s messageType=%s",
-                    expired.obligor, expired.messageType),
-                expired.channelId,  // Use channelId as case reference
-                expired.obligor,
-                expired.expiresAt
-            ));
-        }
-
-        // Failed workers from event buffer
-        List<TrackedEvent> recentEvents = tracker.recentEvents(100, null);
-        for (TrackedEvent event : recentEvents) {
-            if (event.eventType().contains("Failed")) {
-                problems.add(new Problem(
-                    "worker_failure",
-                    "error",
-                    String.format("Worker failure: %s on %s#%d",
-                        event.actorId(), event.repo(), event.prNumber()),
-                    event.caseId(),
-                    event.actorId(),
-                    event.timestamp()
-                ));
-            }
-        }
-
-        // Queue SLA breaches — PRs waiting longer than the configured SLA
-        Instant now2 = Instant.now();
-        for (QueuedPr pr : mergeQueueService.queuedPrs()) {
-            long waitMinutes = Duration.between(pr.enqueuedAt(), now2).toMinutes();
-            if (waitMinutes > queueSlaMinutes) {
-                problems.add(new Problem(
-                    "queue_sla_breach",
-                    "warning",
-                    String.format("PR #%d has been queued for %d minutes (SLA: %d minutes)",
-                        pr.number(), waitMinutes, queueSlaMinutes),
-                    null,
-                    pr.author(),
-                    pr.enqueuedAt()
-                ));
-            }
-        }
-
-        return problems;
+        return governanceQuery.problems(threshold);
     }
 
     @Tool(
         name = "inspect_review",
         description = "Get detailed review status including timeline and capability progress"
     )
-    public ReviewDetail inspectReview(
+    public GovernanceQueryService.ReviewDetail inspectReview(
         @ToolArg(name = "case_id", description = "Case UUID", required = true) String caseIdStr
     ) {
         UUID caseId = UUID.fromString(caseIdStr);
-        CaseInfo caseInfo = tracker.getCase(caseId);
-
-        if (caseInfo == null) {
-            throw new IllegalArgumentException("Case not found: " + caseId);
-        }
-
         String tenant = principal.tenancyId();
-
-        // Event log timeline (await async result)
-        List<CaseEventLogRecord> events = caseHubRuntime.eventLog(caseId).toCompletableFuture().join();
-        List<EventEntry> timeline = events.stream()
-            .map(e -> {
-                // Extract actorId from metadata if present
-                String actorId = "system";
-                if (e.metadata() != null && e.metadata().has("actorId")) {
-                    actorId = e.metadata().get("actorId").asText();
-                }
-                return new EventEntry(
-                    e.timestamp(),
-                    e.eventType().toString(),
-                    actorId,
-                    e.eventType().toString()
-                );
-            })
-            .toList();
-
-        var workerEvents = caseHubRuntime.eventLog(caseId, java.util.Set.of(
-            CaseHubEventType.WORK_SUBMITTED,
-            CaseHubEventType.WORKER_EXECUTION_COMPLETED,
-            CaseHubEventType.WORKER_EXECUTION_FAILED,
-            CaseHubEventType.WORKER_OUTCOME_DECLINED
-        )).toCompletableFuture().join();
-
-        Map<String, CapabilityStatus> capabilityMap = new LinkedHashMap<>();
-        for (CaseEventLogRecord event : workerEvents) {
-            String capName = event.metadata() != null && event.metadata().has("capabilityName")
-                ? event.metadata().get("capabilityName").asText()
-                : null;
-            if (capName == null) continue;
-            String status = switch (event.eventType()) {
-                case WORKER_EXECUTION_COMPLETED -> "COMPLETED";
-                case WORKER_EXECUTION_FAILED -> "FAILED";
-                case WORKER_OUTCOME_DECLINED -> "DECLINED";
-                default -> "SCHEDULED";
-            };
-            capabilityMap.put(capName, new CapabilityStatus(capName, status, null, event.timestamp()));
-        }
-
-        List<CapabilityStatus> capabilities = new ArrayList<>(capabilityMap.values());
-
-        return new ReviewDetail(caseId, caseInfo.payload(), timeline, capabilities);
+        return governanceQuery.reviewDetail(caseId, tenant);
     }
 
     @Tool(
         name = "get_reviewer_health",
         description = "Get health metrics for a specific reviewer: commitments, trust scores, decision history"
     )
-    public ReviewerHealth getReviewerHealth(
+    public GovernanceQueryService.ReviewerHealth getReviewerHealth(
         @ToolArg(name = "reviewer_id", description = "Reviewer actor ID", required = true) String reviewerId
     ) {
-
-        List<Commitment> openCommitments = commitmentStore.findOpenByObligor(reviewerId);
-        Map<String, Double> trustByCapability = trustGateService.allCapabilityScores(reviewerId);
-        Map<String, Double> trustByDimension = trustGateService.allDimensionScores(reviewerId);
-
-        // Total decisions across all capabilities
-        int totalDecisions = 0;
-        for (String capability : CAPABILITY_CONTEXT_KEYS.keySet()) {
-            totalDecisions += trustGateService.decisionCount(reviewerId, capability);
-        }
-
-        // Recent outcomes from event buffer
-        List<TrackedEvent> recentEvents = tracker.recentEvents(100, null);
-        List<RecentOutcome> recentOutcomes = recentEvents.stream()
-            .filter(e -> reviewerId.equals(e.actorId()))
-            .filter(e -> e.eventType().contains("Complete"))
-            .map(e -> {
-                String capability = CAPABILITY_CONTEXT_KEYS.keySet().stream()
-                    .filter(cap -> e.eventType().contains(cap))
-                    .findFirst()
-                    .orElse("unknown");
-                String outcome = e.eventType().contains("APPROVED") ? "APPROVED" :
-                               e.eventType().contains("DECLINED") ? "DECLINED" :
-                               "DONE";
-                return new RecentOutcome(e.caseId(), capability, outcome, e.timestamp());
-            })
-            .limit(10)
-            .toList();
-
-        return new ReviewerHealth(
-            reviewerId,
-            openCommitments.size(),
-            trustByCapability,
-            trustByDimension,
-            totalDecisions,
-            recentOutcomes
-        );
+        return governanceQuery.reviewerHealth(reviewerId);
     }
 
     @Tool(
@@ -541,79 +213,27 @@ public class DevtownMcpTools {
         name = "get_merge_queue",
         description = "Get current merge queue state: queued PRs with priority scores, wait times, dependencies, and active batches"
     )
-    public MergeQueueStatus getMergeQueue() {
-        Instant now = Instant.now();
-        List<QueuedPr> queued = mergeQueueService.queuedPrs();
-        Map<String, BatchRecord> batches = mergeQueueService.activeBatches();
-
-        List<QueuedPrEntry> prEntries = queued.stream()
-            .map(pr -> new QueuedPrEntry(
-                pr.number(),
-                pr.repository(),
-                pr.headSha(),
-                pr.author(),
-                pr.trustScore(),
-                pr.lane().name(),
-                pr.enqueuedAt(),
-                Duration.between(pr.enqueuedAt(), now).toMinutes(),
-                pr.dependsOn()
-            ))
-            .toList();
-
-        List<ActiveBatchEntry> batchEntries = batches.values().stream()
-            .map(b -> new ActiveBatchEntry(b.caseId(), b.batchId(), b.prNumbers().size(), "ROUTINE"))
-            .toList();
-
-        return new MergeQueueStatus(queued.size(), batches.size(), prEntries, batchEntries);
+    public GovernanceQueryService.MergeQueueStatus getMergeQueue() {
+        return governanceQuery.mergeQueue();
     }
 
     @Tool(
         name = "get_batch_status",
         description = "Get batch state: PRs in the batch, risk level, bisection strategy"
     )
-    public BatchStatus getBatchStatus(
+    public GovernanceQueryService.BatchStatus getBatchStatus(
         @ToolArg(name = "batch_case_id", description = "Case UUID of the batch", required = true) String batchCaseIdStr
     ) {
         UUID batchCaseId = UUID.fromString(batchCaseIdStr);
-        Map<String, BatchRecord> batches = mergeQueueService.activeBatches();
-        BatchRecord batch = batches.values().stream()
-            .filter(b -> b.caseId().equals(batchCaseId))
-            .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("No active batch found for case: " + batchCaseId));
-
-        // BatchRecord does not carry full PR details — return PR numbers with placeholders
-        List<BatchPrEntry> prEntries = batch.prNumbers().stream()
-            .map(prNum -> new BatchPrEntry(prNum, batch.repository(), "", "", 0.0, ""))
-            .toList();
-
-        return new BatchStatus(batch.batchId(), batchCaseId, prEntries, "ROUTINE", "trust-weighted");
+        return governanceQuery.batchStatus(batchCaseId);
     }
 
     @Tool(
         name = "get_merge_queue_metrics",
-        description = "Get operational metrics: queue depth, active batches, oldest wait time, average trust score, lane distribution"
+        description = "Get operational metrics: queue depth, active batches, wait times, throughput, failure rate, trust score, lane and batch size distribution"
     )
-    public MergeQueueMetrics getMergeQueueMetrics() {
-        Instant now = Instant.now();
-        List<QueuedPr> queued = mergeQueueService.queuedPrs();
-        Map<String, BatchRecord> batches = mergeQueueService.activeBatches();
-
-        long oldestWaitMinutes = queued.stream()
-            .mapToLong(pr -> Duration.between(pr.enqueuedAt(), now).toMinutes())
-            .max()
-            .orElse(0);
-
-        double avgTrust = queued.stream()
-            .mapToDouble(QueuedPr::trustScore)
-            .average()
-            .orElse(0.0);
-
-        Map<String, Integer> countsByLane = new HashMap<>();
-        for (QueuedPr pr : queued) {
-            countsByLane.merge(pr.lane().name(), 1, Integer::sum);
-        }
-
-        return new MergeQueueMetrics(queued.size(), batches.size(), oldestWaitMinutes, avgTrust, countsByLane);
+    public GovernanceQueryService.MergeQueueMetrics getMergeQueueMetrics() {
+        return governanceQuery.mergeQueueMetrics();
     }
 
     // ==================== Write Tools ====================
@@ -633,7 +253,7 @@ public class DevtownMcpTools {
             throw new IllegalArgumentException("Case not found: " + caseId);
         }
 
-        String contextKey = CAPABILITY_CONTEXT_KEYS.get(capability);
+        String contextKey = GovernanceQueryService.CAPABILITY_CONTEXT_KEYS.get(capability);
         if (contextKey == null) {
             throw new IllegalArgumentException("Unknown capability: " + capability);
         }
@@ -703,7 +323,7 @@ public class DevtownMcpTools {
             throw new IllegalArgumentException("Case not found: " + caseId);
         }
 
-        String contextKey = CAPABILITY_CONTEXT_KEYS.get(capability);
+        String contextKey = GovernanceQueryService.CAPABILITY_CONTEXT_KEYS.get(capability);
         if (contextKey == null) {
             throw new IllegalArgumentException("Unknown capability: " + capability);
         }
@@ -749,9 +369,8 @@ public class DevtownMcpTools {
         }
 
         QueuedPr pr = new QueuedPr(prNumber, repo, headSha, author, trustScore, lane, Instant.now(), Set.of());
-        mergeQueueService.enqueue(pr);
-
-        return new EnqueueResult(prNumber, lane.name(), "ENQUEUED");
+        boolean inserted = mergeQueueService.enqueue(pr);
+        return new EnqueueResult(prNumber, lane.name(), inserted ? "ENQUEUED" : "ALREADY_QUEUED");
     }
 
     @Tool(

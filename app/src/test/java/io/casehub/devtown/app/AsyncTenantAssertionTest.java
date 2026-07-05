@@ -6,9 +6,9 @@ import static org.awaitility.Awaitility.await;
 
 import io.casehub.devtown.domain.memory.DevtownMemoryDomain;
 import io.casehub.platform.api.identity.TenancyConstants;
-import io.casehub.platform.api.memory.CaseMemoryStore;
-import io.casehub.platform.api.memory.MemoryInput;
-import io.casehub.platform.api.memory.MemoryQuery;
+import io.casehub.neocortex.memory.CaseMemoryStore;
+import io.casehub.neocortex.memory.MemoryInput;
+import io.casehub.neocortex.memory.MemoryQuery;
 import io.casehub.platform.testing.FixedCurrentPrincipal;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;

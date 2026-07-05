@@ -2,6 +2,7 @@ package io.casehub.devtown.merge;
 
 import io.casehub.devtown.queue.QueuedPr;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,13 +33,25 @@ public interface MergeQueueStore {
     boolean enqueue(QueuedPr pr, UUID workItemId);
 
     /**
+     * Associate a WorkItem ID with an already-enqueued PR.
+     *
+     * <p>Called after {@link #enqueue} returns {@code true} and the WorkItem has been
+     * created. This two-step pattern prevents orphaned WorkItems on duplicate enqueue.
+     *
+     * @param prNumber PR number
+     * @param repository repository name
+     * @param workItemId the SLA WorkItem ID to associate
+     */
+    void updateWorkItemId(int prNumber, String repository, UUID workItemId);
+
+    /**
      * Remove a PR from the queue (sets status to DEQUEUED).
      *
      * @param prNumber PR number
      * @param repository repository name
-     * @return true if a QUEUED entry was dequeued; false if no QUEUED entry exists
+     * @return the dequeued entry if found in QUEUED state; empty if absent or not QUEUED
      */
-    boolean dequeue(int prNumber, String repository);
+    Optional<QueueEntry> dequeue(int prNumber, String repository);
 
     /**
      * Returns all entries in QUEUED status.
@@ -145,4 +158,23 @@ public interface MergeQueueStore {
      * @return failure rate [0.0, 1.0]; 0.0 if no completed batches exist
      */
     double recentBatchFailureRate(String repository, int window);
+
+    /**
+     * Returns all batches completed since the given instant.
+     *
+     * @param since cutoff instant (inclusive)
+     * @return completed batches ordered by completedAt descending
+     */
+    List<BatchRecord> completedBatchesSince(Instant since);
+
+    /**
+     * Aggregate failure rate across all repositories.
+     *
+     * <p>Overload of {@link #recentBatchFailureRate(String, int)} without the
+     * repository filter — for cross-repo aggregate metrics.
+     *
+     * @param window maximum number of recent completed batches to consider
+     * @return failure rate [0.0, 1.0]; 0.0 if no completed batches exist
+     */
+    double recentBatchFailureRate(int window);
 }

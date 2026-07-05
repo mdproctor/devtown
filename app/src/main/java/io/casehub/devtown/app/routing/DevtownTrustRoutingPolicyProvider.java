@@ -2,36 +2,36 @@ package io.casehub.devtown.app.routing;
 
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
+import io.casehub.api.spi.routing.DoublePreference;
+import io.casehub.api.spi.routing.TrustRoutingPolicyKeys;
+import io.casehub.api.spi.routing.TrustRoutingPolicyResolver;
 import io.casehub.devtown.domain.RoutingPolicy;
 import io.casehub.devtown.domain.spi.CapabilityRegistry;
-import io.casehub.devtown.domain.preferences.DoublePreference;
-import io.casehub.devtown.domain.trust.TrustRoutingPolicyKeys;
-import io.casehub.platform.api.preferences.PreferenceKey;
+import io.casehub.devtown.domain.DevtownTrustDimension;
 import io.casehub.platform.api.preferences.PreferenceProvider;
 import io.casehub.platform.api.preferences.Preferences;
 import io.casehub.platform.api.preferences.SettingsScope;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Devtown-specific {@link TrustRoutingPolicyProvider}.
- *
- * <p>Reads threshold/minimumObservations/borderlineMargin from {@link CapabilityRegistry}
- * (single source of truth in the domain layer). Reads blendFactor and quality floors from
- * YAML config via {@link PreferenceProvider} at scope
- * {@code casehubio/devtown/trust-routing/<capabilityName>}.
- *
- * <p>{@code @ApplicationScoped} (no {@code @DefaultBean}) displaces
- * {@code DefaultTrustRoutingPolicyProvider @DefaultBean} automatically.
- */
 @ApplicationScoped
 public class DevtownTrustRoutingPolicyProvider implements TrustRoutingPolicyProvider {
 
+    static final TrustRoutingPolicyKeys KEYS =
+            TrustRoutingPolicyKeys.create("casehubio.devtown.trust-routing")
+                    .withFloor(DevtownTrustDimension.REVIEW_THOROUGHNESS, "review-thoroughness")
+                    .withFloor(DevtownTrustDimension.PRECISION, "precision")
+                    .withFloor(DevtownTrustDimension.SCOPE_CALIBRATION, "scope-calibration");
+
     private final PreferenceProvider preferenceProvider;
     private final CapabilityRegistry capabilityRegistry;
+
+    @Override
+    public String id() {
+        return "devtown";
+    }
 
     @Inject
     public DevtownTrustRoutingPolicyProvider(
@@ -49,7 +49,6 @@ public class DevtownTrustRoutingPolicyProvider implements TrustRoutingPolicyProv
         }
 
         final RoutingPolicy routingPolicy = rp.get();
-        // resolve() returns empty prefs for capabilities with no YAML scope — that is safe and expected
         final Preferences prefs = preferenceProvider.resolve(
             SettingsScope.of("casehubio", "devtown", "trust-routing", capabilityName));
 
@@ -60,25 +59,16 @@ public class DevtownTrustRoutingPolicyProvider implements TrustRoutingPolicyProv
         final double borderlineMargin = routingPolicy.borderlineMargin()
             .orElse(TrustRoutingPolicy.DEFAULT.borderlineMargin());
 
-        final DoublePreference blendFactorPref = prefs.get(TrustRoutingPolicyKeys.BLEND_FACTOR);
+        final DoublePreference blendFactorPref = prefs.get(KEYS.blendFactor());
         final double blendFactor = blendFactorPref != null
             ? blendFactorPref.value()
             : TrustRoutingPolicy.DEFAULT.blendFactor();
 
-        final Map<String, Double> qualityFloors = new HashMap<>();
-        TrustRoutingPolicyKeys.allFloorKeys().forEach((dimension, key) ->
-            addFloor(qualityFloors, prefs, key, dimension));
+        final Map<String, Double> qualityFloors =
+                TrustRoutingPolicyResolver.collectFloors(prefs, KEYS.allFloorKeys());
 
         return new TrustRoutingPolicy(threshold, minimumObservations, borderlineMargin,
-            blendFactor, Map.copyOf(qualityFloors), routingPolicy.fallbackType().isPresent());
-    }
-
-    // 0.0 is the no-floor sentinel per TrustRoutingPolicyKeys — skip absent or zero floors
-    private static void addFloor(final Map<String, Double> floors, final Preferences prefs,
-            final PreferenceKey<DoublePreference> key, final String dimension) {
-        final DoublePreference value = prefs.get(key);
-        if (value != null && value.value() > 0.0) {
-            floors.put(dimension, value.value());
-        }
+            blendFactor, Map.copyOf(qualityFloors), routingPolicy.fallbackType().isPresent(),
+            TrustRoutingPolicy.DEFAULT.fallbackBinding());
     }
 }

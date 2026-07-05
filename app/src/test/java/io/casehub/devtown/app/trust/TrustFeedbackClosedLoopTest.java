@@ -16,9 +16,9 @@ import io.casehub.devtown.domain.ReviewDomain;
 import io.casehub.ledger.api.model.AttestationVerdict;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.model.WorkerDecisionEntry;
-import io.casehub.ledger.runtime.model.LedgerAttestation;
-import io.casehub.ledger.runtime.model.LedgerEntry;
-import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
+import io.casehub.ledger.api.model.LedgerAttestation;
+import io.casehub.ledger.api.model.LedgerEntry;
+import io.casehub.ledger.api.spi.LedgerEntryRepository;
 import io.casehub.ledger.runtime.service.TrustGateService;
 import io.casehub.platform.api.identity.ActorType;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -133,9 +133,9 @@ class TrustFeedbackClosedLoopTest {
         assertThat(scoreBAfter.getAsDouble()).isEqualTo(scoreBBefore.getAsDouble());
 
         // Phase 5: Routing shift — Agent B wins (Agent A degraded)
-        AgentCandidate candidateA = new AgentCandidate(AGENT_A, Set.of(ReviewDomain.SECURITY_REVIEW), 0, AgentHealth.READY, null);
-        AgentCandidate candidateB = new AgentCandidate(AGENT_B, Set.of(ReviewDomain.SECURITY_REVIEW), 0, AgentHealth.READY, null);
-        AgentRoutingContext context = new AgentRoutingContext(UUID.randomUUID(), ReviewDomain.SECURITY_REVIEW, null);
+        AgentCandidate candidateA = new AgentCandidate(AGENT_A, Set.of(ReviewDomain.SECURITY_REVIEW), 0, AgentHealth.READY, null, null);
+        AgentCandidate candidateB = new AgentCandidate(AGENT_B, Set.of(ReviewDomain.SECURITY_REVIEW), 0, AgentHealth.READY, null, null);
+        AgentRoutingContext context = new AgentRoutingContext(UUID.randomUUID(), ReviewDomain.SECURITY_REVIEW, null, TENANT);
 
         AgentAssignment assignment = routingStrategy.select(context, List.of(candidateA, candidateB))
             .await().atMost(Duration.ofSeconds(5));

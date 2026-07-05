@@ -2,28 +2,28 @@ package io.casehub.devtown.app.ledger;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
+import io.casehub.devtown.domain.DeterministicUuid;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.model.CaseLedgerEntry;
 import io.casehub.ledger.runtime.config.LedgerConfig;
-import io.casehub.ledger.runtime.model.supplement.ComplianceSupplement;
-import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
+import io.casehub.ledger.api.model.supplement.ComplianceSupplement;
+import io.casehub.ledger.api.spi.LedgerEntryRepository;
 import io.casehub.platform.api.identity.ActorType;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
+import org.jboss.logging.Logger;
+
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.jboss.logging.Logger;
 
 /**
  * Observes terminal {@link CaseLifecycleEvent} transitions and writes a
@@ -79,8 +79,7 @@ public class MergeDecisionObserver {
 
         CaseInstance ci;
         try {
-            ci = caseInstanceRepo.findByUuid(event.caseId())
-                    .await().atMost(Duration.ofSeconds(5));
+            ci = caseInstanceRepo.findByUuid(event.caseId());
         } catch (Exception e) {
             LOG.warnf(e, "Failed to lookup CaseInstance for caseId=%s", event.caseId());
             return;
@@ -140,7 +139,7 @@ public class MergeDecisionObserver {
                         && event.caseStatus().equals(cle.caseStatus))
                 .ifPresent(latest -> entry.causedByEntryId = latest.id);
 
-        ComplianceSupplement cs = new ComplianceSupplement();
+        ComplianceSupplement cs = new DevtownComplianceSupplement();
         cs.algorithmRef = "casehub-devtown:pr-review-v1";
         cs.humanOverrideAvailable = true;
         cs.contestationUri = "/api/reviews/" + prNumber + "/contest";
@@ -189,8 +188,9 @@ public class MergeDecisionObserver {
             int prNumber = n.intValue();
 
             // Derive deterministic subjectId from caseId + prNumber (UUID v5)
-            String nameInput = event.caseId().toString() + ":" + prNumber;
-            java.util.UUID subjectId = java.util.UUID.nameUUIDFromBytes(nameInput.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            UUID subjectId = DeterministicUuid.v5(
+                    DeterministicUuid.MERGE_DECISION_NS,
+                    event.caseId() + ":" + prNumber);
 
             MergeDecisionLedgerEntry entry = new MergeDecisionLedgerEntry();
             entry.subjectId = subjectId;
@@ -219,7 +219,7 @@ public class MergeDecisionObserver {
                             && event.caseStatus().equals(cle.caseStatus))
                     .ifPresent(latest -> entry.causedByEntryId = latest.id);
 
-            ComplianceSupplement cs = new ComplianceSupplement();
+            ComplianceSupplement cs = new DevtownComplianceSupplement();
             cs.algorithmRef = "casehub-devtown:merge-queue-v1";
             cs.humanOverrideAvailable = true;
             cs.contestationUri = "/api/merge-queue/batches/" + batchId + "/contest";

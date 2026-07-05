@@ -1,5 +1,6 @@
 package io.casehub.devtown.app;
 
+import io.casehub.devtown.app.governance.MergeQueueStateEvent;
 import io.casehub.devtown.domain.queue.MergeQueuePreferenceKeys;
 import io.casehub.devtown.domain.queue.PriorityLane;
 import io.casehub.devtown.merge.AdmissionResult;
@@ -18,6 +19,7 @@ import io.casehub.platform.api.preferences.SettingsScope;
 import io.casehub.work.runtime.service.WorkItemService;
 import io.casehub.work.api.WorkItemCreateRequest;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -27,6 +29,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -63,6 +66,9 @@ public class MergeQueueService implements MergeQueueAdmissionPort {
     @Inject
     Instance<WorkItemService> workItemServiceInstance;
 
+    @Inject
+    Event<MergeQueueStateEvent> queueEvent;
+
     // ── Public API ──────────────────────────────────────────────────────────
 
     /**
@@ -89,7 +95,12 @@ public class MergeQueueService implements MergeQueueAdmissionPort {
      * @return true if a new entry was created; false if already queued (no-op)
      */
     public boolean enqueue(QueuedPr pr) {
-        UUID workItemId = null;
+        boolean inserted = store.enqueue(pr, null);
+        if (!inserted) {
+            LOG.debugf("Duplicate enqueue for PR #%d from %s — no-op",
+                pr.number(), pr.repository());
+            return false;
+        }
 
         if (workItemServiceInstance.isResolvable()) {
             WorkItemService workItemService = workItemServiceInstance.get();
@@ -108,18 +119,16 @@ public class MergeQueueService implements MergeQueueAdmissionPort {
                 .build();
 
             var workItem = workItemService.create(request);
-            workItemId = workItem.id;
+            store.updateWorkItemId(pr.number(), pr.repository(), workItem.id);
             LOG.infof("Created WorkItem %s for PR %s#%d (SLA: %s)",
-                workItemId, pr.repository(), pr.number(), slaDuration);
+                workItem.id, pr.repository(), pr.number(), slaDuration);
         }
 
-        boolean inserted = store.enqueue(pr, workItemId);
         LOG.infof("Enqueued PR #%d from %s (trust=%.2f, lane=%s)",
             pr.number(), pr.repository(), pr.trustScore(), pr.lane());
-        if (inserted) {
-            formAndDispatchBatches();
-        }
-        return inserted;
+        queueEvent.fireAsync(MergeQueueStateEvent.enqueue(pr.repository(), pr.number()));
+        formAndDispatchBatches();
+        return true;
     }
 
     /**
@@ -162,6 +171,7 @@ public class MergeQueueService implements MergeQueueAdmissionPort {
 
             store.recordBatch(formed.batch().id(), caseId, formed.prNumbers(), formed.repository());
             caseIds.add(caseId);
+            queueEvent.fireAsync(MergeQueueStateEvent.batchFormed(formed.repository(), formed.batch().id()));
             LOG.infof("Dispatched batch %s (%d PRs from %s) as case %s",
                 formed.batch().id(), formed.batch().size(), formed.repository(), caseId);
         }
@@ -238,35 +248,36 @@ public class MergeQueueService implements MergeQueueAdmissionPort {
             batch.batchId(), caseId, entries.size(), batchSucceeded, rejectedPrNumbers);
 
         store.completeBatch(batch.batchId(), batchSucceeded);
+        queueEvent.fireAsync(MergeQueueStateEvent.batchCompleted(batch.repository(), batch.batchId()));
     }
 
     /**
      * Dequeue a PR by composite identifier (prNumber, repository).
      *
+     * <p>Atomically transitions the entry from QUEUED to DEQUEUED and returns
+     * the entry (including its WorkItem ID) from the same transaction. If the
+     * entry is not in QUEUED state (absent, IN_BATCH, or already terminal),
+     * returns false without side effects.
+     *
      * @return true if a QUEUED entry was dequeued
      */
     public boolean dequeue(int prNumber, String repository) {
-        // Look up the entry to get its WorkItem ID before dequeuing
-        List<QueueEntry> queued = store.queued();
-        QueueEntry target = queued.stream()
-            .filter(e -> e.pr().number() == prNumber && e.pr().repository().equals(repository))
-            .findFirst()
-            .orElse(null);
+        Optional<QueueEntry> dequeued = store.dequeue(prNumber, repository);
+        if (dequeued.isEmpty()) return false;
 
-        boolean removed = store.dequeue(prNumber, repository);
-
-        if (removed && target != null && target.workItemId() != null
-                && workItemServiceInstance.isResolvable()) {
+        UUID workItemId = dequeued.get().workItemId();
+        if (workItemId != null && workItemServiceInstance.isResolvable()) {
             try {
                 workItemServiceInstance.get().obsoleteFromSystem(
-                    target.workItemId(), "system", "dequeued");
+                    workItemId, "system", "dequeued");
             } catch (Exception e) {
                 LOG.warnf(e, "Failed to obsolete WorkItem %s for dequeued PR #%d",
-                    target.workItemId(), prNumber);
+                    workItemId, prNumber);
             }
         }
 
-        return removed;
+        queueEvent.fireAsync(MergeQueueStateEvent.dequeue(repository, prNumber));
+        return true;
     }
 
     // ── Read accessors (delegated to store) ─────────────────────────────────
@@ -287,6 +298,35 @@ public class MergeQueueService implements MergeQueueAdmissionPort {
 
     public Map<String, BatchRecord> activeBatches() {
         return store.activeBatches();
+    }
+
+    public record SlaBreach(QueuedPr pr, Duration waited, Duration sla) {}
+
+    public List<SlaBreach> detectSlaBreaches() {
+        Preferences prefs = resolvePreferences();
+        Instant now = Instant.now();
+        List<SlaBreach> breaches = new ArrayList<>();
+        for (QueueEntry entry : store.queued()) {
+            QueuedPr pr = entry.pr();
+            String slaDuration = prefs.getOrDefault(
+                MergeQueuePreferenceKeys.slaKeyFor(pr.lane())).value();
+            Duration sla = Duration.parse(slaDuration);
+            Duration waited = Duration.between(pr.enqueuedAt(), now);
+            if (waited.compareTo(sla) > 0) {
+                breaches.add(new SlaBreach(pr, waited, sla));
+            }
+        }
+        return breaches;
+    }
+
+    public List<BatchRecord> completedBatches(Duration window) {
+        return store.completedBatchesSince(Instant.now().minus(window));
+    }
+
+    public double aggregateFailureRate() {
+        Preferences prefs = resolvePreferences();
+        int window = prefs.getOrDefault(MergeQueuePreferenceKeys.FAILURE_RATE_WINDOW).value();
+        return store.recentBatchFailureRate(window);
     }
 
     // ── Internal ────────────────────────────────────────────────────────────

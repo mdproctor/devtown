@@ -76,7 +76,7 @@ class SlaBreachHandlerWiringTest {
 
         await().atMost(5, SECONDS).pollInterval(100, MILLISECONDS).untilAsserted(() -> {
             var instance = caseInstanceRepository.findByUuid(caseId)
-                    .await().atMost(Duration.ofSeconds(2));
+                    ;
             assertThat(instance.getCaseContext().getPath("humanApproval.outcome"))
                     .isEqualTo("BLOCKED");
         });

@@ -4,10 +4,10 @@ import io.casehub.devtown.domain.memory.DevtownMemoryDomain;
 import io.casehub.devtown.domain.memory.MemoryRecallKeys;
 import io.casehub.devtown.review.PrPayload;
 import io.casehub.platform.api.identity.TenancyConstants;
-import io.casehub.platform.api.memory.CaseMemoryStore;
-import io.casehub.platform.api.memory.Memory;
-import io.casehub.platform.api.memory.MemoryInput;
-import io.casehub.platform.api.memory.MemoryQuery;
+import io.casehub.neocortex.memory.CaseMemoryStore;
+import io.casehub.neocortex.memory.Memory;
+import io.casehub.neocortex.memory.MemoryInput;
+import io.casehub.neocortex.memory.MemoryQuery;
 import io.casehub.platform.api.preferences.MapPreferences;
 import io.casehub.platform.api.preferences.PreferenceProvider;
 import jakarta.enterprise.inject.Instance;
@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -119,6 +118,6 @@ class CaseMemoryRecallerPreferenceTest {
         }
 
         @Override
-        public int erase(final io.casehub.platform.api.memory.EraseRequest request) { return 0; }
+        public int erase(final io.casehub.neocortex.memory.EraseRequest request) { return 0; }
     }
 }

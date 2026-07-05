@@ -2,9 +2,9 @@ package io.casehub.devtown.review;
 
 import io.casehub.devtown.domain.memory.DevtownMemoryKeys;
 import io.casehub.devtown.domain.memory.ReviewOutcome;
-import io.casehub.platform.api.memory.Memory;
-import io.casehub.platform.api.memory.MemoryAttributeKeys;
-import io.casehub.platform.api.memory.MemoryDomain;
+import io.casehub.neocortex.memory.Memory;
+import io.casehub.neocortex.memory.MemoryAttributeKeys;
+import io.casehub.neocortex.memory.MemoryDomain;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

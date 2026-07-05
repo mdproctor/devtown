@@ -7,11 +7,11 @@ import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.inject.Inject;
-import java.time.Duration;
+import org.jboss.logging.Logger;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.jboss.logging.Logger;
 
 /**
  * Observes terminal {@link CaseLifecycleEvent} transitions for merge batch cases
@@ -67,8 +67,7 @@ public class MergeBatchCompletionObserver {
         // Lookup CaseInstance
         CaseInstance ci;
         try {
-            ci = caseInstanceRepo.findByUuid(event.caseId())
-                    .await().atMost(Duration.ofSeconds(5));
+            ci = caseInstanceRepo.findByUuid(event.caseId());
         } catch (Exception e) {
             LOG.warnf(e, "Failed to lookup CaseInstance for caseId=%s", event.caseId());
             return;

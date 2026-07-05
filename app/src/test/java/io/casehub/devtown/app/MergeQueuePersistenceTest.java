@@ -73,8 +73,8 @@ class MergeQueuePersistenceTest {
         QueuedPr pr = makePr(502, "casehubio/devtown");
         store.enqueue(pr, UUID.randomUUID());
 
-        boolean removed = store.dequeue(502, "casehubio/devtown");
-        assertThat(removed).isTrue();
+        Optional<QueueEntry> removed = store.dequeue(502, "casehubio/devtown");
+        assertThat(removed).isPresent();
 
         List<QueueEntry> queued = store.queued();
         assertThat(queued).isEmpty();
@@ -82,8 +82,8 @@ class MergeQueuePersistenceTest {
 
     @Test
     void dequeue_returns_false_for_nonexistent() {
-        boolean removed = store.dequeue(9999, "casehubio/devtown");
-        assertThat(removed).isFalse();
+        Optional<QueueEntry> removed = store.dequeue(9999, "casehubio/devtown");
+        assertThat(removed).isEmpty();
     }
 
     @Test

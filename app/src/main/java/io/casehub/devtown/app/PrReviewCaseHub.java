@@ -6,7 +6,6 @@ import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerResult;
 import io.casehub.devtown.domain.MergeClient;
 import io.casehub.devtown.domain.MergeOutcome;
-import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Map;
@@ -21,15 +20,11 @@ public class PrReviewCaseHub extends YamlCaseHub {
         super("devtown/pr-review.yaml");
     }
 
-    @PostConstruct
-    void registerWorkers() {
-        CaseDefinition def = super.getDefinition();
-        var mergeCap = def.getCapabilities().stream()
-            .filter(c -> "merge-executor".equals(c.name()))
-            .findFirst().orElseThrow();
-        def.getWorkers().add(Worker.builder()
+    @Override
+    protected void augment(CaseDefinition definition) {
+        definition.getWorkers().add(Worker.builder()
             .name("merge-executor")
-            .capabilities(mergeCap)
+            .capabilityName("merge-executor")
             .function(this::adaptMerge)
             .build());
     }

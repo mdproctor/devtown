@@ -7,11 +7,11 @@ import io.casehub.devtown.review.PrReviewOutcome;
 import io.casehub.devtown.review.ReviewerAgent;
 import io.casehub.devtown.review.ReviewerOutcome;
 import io.casehub.platform.api.identity.ActorType;
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.channel.ChannelCreateRequest;
 import io.casehub.qhorus.runtime.channel.ChannelService;
 import io.casehub.qhorus.runtime.message.MessageService;
 import jakarta.annotation.Priority;
@@ -19,16 +19,20 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
-import static io.casehub.qhorus.api.message.MessageType.*;
+import static io.casehub.qhorus.api.message.MessageType.COMMAND;
+import static io.casehub.qhorus.api.message.MessageType.DECLINE;
+import static io.casehub.qhorus.api.message.MessageType.DONE;
+import static io.casehub.qhorus.api.message.MessageType.EVENT;
+import static io.casehub.qhorus.api.message.MessageType.FAILURE;
+import static io.casehub.qhorus.api.message.MessageType.STATUS;
 
 /**
  * Layer 3: replaces direct specialist invocation (Layer 1) with typed speech-act messaging.
@@ -45,17 +49,14 @@ public class QhorusPrReviewService implements PrReviewApplicationService {
 
     private static final String ORCHESTRATOR = "pr-orchestrator";
 
-    static final String WORK_ALLOWED_TYPES =
-            EnumSet.of(COMMAND, STATUS, DONE, DECLINE, FAILURE)
-                   .stream().map(Enum::name).collect(Collectors.joining(","));
+    static final Set<MessageType> WORK_ALLOWED_TYPES =
+            Set.copyOf(EnumSet.of(COMMAND, STATUS, DONE, DECLINE, FAILURE));
 
-    static final String OBSERVE_ALLOWED_TYPES =
-            EnumSet.of(EVENT)
-                   .stream().map(Enum::name).collect(Collectors.joining(","));
+    static final Set<MessageType> OBSERVE_ALLOWED_TYPES =
+            Set.copyOf(EnumSet.of(EVENT));
 
-    static final String OVERSIGHT_ALLOWED_TYPES =
-            EnumSet.of(COMMAND, DONE, DECLINE)
-                   .stream().map(Enum::name).collect(Collectors.joining(","));
+    static final Set<MessageType> OVERSIGHT_ALLOWED_TYPES =
+            Set.copyOf(EnumSet.of(COMMAND, DONE, DECLINE));
 
     @Inject
     ChannelService channelService;
@@ -79,7 +80,7 @@ public class QhorusPrReviewService implements PrReviewApplicationService {
             final String correlationId = UUID.randomUUID().toString();
 
             var commandResult = messageService.dispatch(MessageDispatch.builder()
-                    .channelId(work.id)
+                    .channelId(work.id())
                     .sender(ORCHESTRATOR)
                     .type(MessageType.COMMAND)
                     .content(pr.repo() + "#" + pr.prNumber())
@@ -93,7 +94,7 @@ public class QhorusPrReviewService implements PrReviewApplicationService {
             switch (outcome) {
                 case ReviewerOutcome.Completed completed -> {
                     messageService.dispatch(MessageDispatch.builder()
-                            .channelId(work.id)
+                            .channelId(work.id())
                             .sender(ORCHESTRATOR)
                             .type(MessageType.DONE)
                             .content(String.join("; ", completed.findings()))
@@ -105,7 +106,7 @@ public class QhorusPrReviewService implements PrReviewApplicationService {
                 }
                 case ReviewerOutcome.Declined declined ->
                     messageService.dispatch(MessageDispatch.builder()
-                            .channelId(work.id)
+                            .channelId(work.id())
                             .sender(ORCHESTRATOR)
                             .type(MessageType.DECLINE)
                             .content(declined.reason())
@@ -115,7 +116,7 @@ public class QhorusPrReviewService implements PrReviewApplicationService {
                             .build());
                 case ReviewerOutcome.Failed failed ->
                     messageService.dispatch(MessageDispatch.builder()
-                            .channelId(work.id)
+                            .channelId(work.id())
                             .sender(ORCHESTRATOR)
                             .type(MessageType.FAILURE)
                             .content(failed.reason())
@@ -153,52 +154,36 @@ public class QhorusPrReviewService implements PrReviewApplicationService {
         final String name = prefix + "/work";
         return channelService.findByName(name)
                 .map(ch -> requireContract(ch, WORK_ALLOWED_TYPES, ORCHESTRATOR))
-                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, ORCHESTRATOR, ORCHESTRATOR, null, null, null, parseTypes(WORK_ALLOWED_TYPES), null, null, null, null, null)));
+                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, List.of(ORCHESTRATOR), List.of(ORCHESTRATOR), null, null, null, WORK_ALLOWED_TYPES, null, null, null, null, null)));
     }
 
     private Channel findOrCreateObserveChannel(final String prefix) {
         final String name = prefix + "/observe";
         return channelService.findByName(name)
                 .map(ch -> requireContract(ch, OBSERVE_ALLOWED_TYPES, ORCHESTRATOR))
-                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, ORCHESTRATOR, ORCHESTRATOR, null, null, null, parseTypes(OBSERVE_ALLOWED_TYPES), null, null, null, null, null)));
+                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, List.of(ORCHESTRATOR), List.of(ORCHESTRATOR), null, null, null, OBSERVE_ALLOWED_TYPES, null, null, null, null, null)));
     }
 
     private Channel findOrCreateOversightChannel(final String prefix) {
         final String name = prefix + "/oversight";
         return channelService.findByName(name)
                 .map(ch -> requireContract(ch, OVERSIGHT_ALLOWED_TYPES, ORCHESTRATOR))
-                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, ORCHESTRATOR, ORCHESTRATOR, null, null, null, parseTypes(OVERSIGHT_ALLOWED_TYPES), null, null, null, null, null)));
+                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, List.of(ORCHESTRATOR), List.of(ORCHESTRATOR), null, null, null, OVERSIGHT_ALLOWED_TYPES, null, null, null, null, null)));
     }
 
-    private static Set<MessageType> parseTypes(final String csv) {
-        return Arrays.stream(csv.split(",")).map(MessageType::valueOf).collect(Collectors.toSet());
-    }
-
-    private static Channel requireContract(final Channel ch, final String expectedTypes,
-            final String expectedWriters) {
-        requireAllowedTypes(ch, expectedTypes);
-        requireAllowedWriters(ch, expectedWriters);
+    private static Channel requireContract(final Channel ch, final Set<MessageType> expectedTypes,
+            final String expectedWriter) {
+        Set<MessageType> actual = ch.allowedTypes() != null ? ch.allowedTypes() : Set.of();
+        if (!actual.equals(expectedTypes)) {
+            throw new IllegalStateException(
+                    "Channel '" + ch.name() + "' has allowedTypes=" + actual
+                    + " but expected " + expectedTypes + ".");
+        }
+        if (!ch.allowedWriters().contains(expectedWriter)) {
+            throw new IllegalStateException(
+                    "Channel '" + ch.name() + "' has allowedWriters=" + ch.allowedWriters()
+                    + " but expected to contain '" + expectedWriter + "'.");
+        }
         return ch;
-    }
-
-    private static void requireAllowedTypes(final Channel ch, final String expected) {
-        Set<String> actual = ch.allowedTypes == null
-                ? Set.of()
-                : Set.of(ch.allowedTypes.split(","));
-        Set<String> expectedSet = Set.of(expected.split(","));
-        if (!actual.equals(expectedSet)) {
-            throw new IllegalStateException(
-                    "Channel '" + ch.name + "' has allowedTypes='" + ch.allowedTypes
-                    + "' but expected '" + expected + "'. "
-                    + "Delete and recreate, or wait for qhorus#246 (setAllowedTypes).");
-        }
-    }
-
-    private static void requireAllowedWriters(final Channel ch, final String expected) {
-        if (!expected.equals(ch.allowedWriters)) {
-            throw new IllegalStateException(
-                    "Channel '" + ch.name + "' has allowedWriters='" + ch.allowedWriters
-                    + "' but expected '" + expected + "'.");
-        }
     }
 }

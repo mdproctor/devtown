@@ -8,6 +8,7 @@ import io.casehub.devtown.merge.QueueEntry;
 import io.casehub.devtown.merge.QueueEntryStatus;
 import io.casehub.devtown.queue.QueuedPr;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import io.quarkus.hibernate.orm.PersistenceUnit;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.Test;
  * prioritization logic from engine tenant/worker dependencies.
  */
 @QuarkusTest
+@TestProfile(BatchFormationTestProfile.class)
 class MergeQueueMultiRepoBatchTest {
 
     @Inject MergeQueueStore store;

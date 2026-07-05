@@ -1,9 +1,9 @@
 package io.casehub.devtown.app;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
-import io.casehub.platform.api.memory.CaseMemoryStore;
-import io.casehub.platform.api.memory.MemoryCapability;
-import io.casehub.platform.api.memory.MemoryCapabilityException;
+import io.casehub.neocortex.memory.CaseMemoryStore;
+import io.casehub.neocortex.memory.MemoryCapability;
+import io.casehub.neocortex.memory.MemoryCapabilityException;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

@@ -67,6 +67,27 @@ class MergeQueueSlaWorkItemTest {
     }
 
     @Test
+    void duplicateEnqueue_doesNotCreateOrphanedWorkItem() {
+        var pr = new QueuedPr(
+            502, "casehubio/devtown", "ghi502", "carol", 0.60,
+            PriorityLane.NORMAL, Instant.now(), Set.of()
+        );
+
+        mergeQueueService.enqueue(pr);
+
+        await().atMost(5, SECONDS).pollInterval(200, MILLISECONDS)
+            .until(() -> !scanMergeQueueWorkItems(502).isEmpty());
+
+        boolean secondResult = mergeQueueService.enqueue(pr);
+        assertThat(secondResult).isFalse();
+
+        await().atMost(2, SECONDS).pollInterval(200, MILLISECONDS).untilAsserted(() -> {
+            var items = scanMergeQueueWorkItems(502);
+            assertThat(items).as("duplicate enqueue must not create a second WorkItem").hasSize(1);
+        });
+    }
+
+    @Test
     void dequeue_obsoletesWorkItem() {
         var pr = new QueuedPr(
             501, "casehubio/devtown", "def501", "bob", 0.80,

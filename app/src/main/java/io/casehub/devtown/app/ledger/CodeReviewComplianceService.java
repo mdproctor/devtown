@@ -1,19 +1,19 @@
 package io.casehub.devtown.app.ledger;
 
+import io.casehub.blocks.routing.RequirementStatus;
+import io.casehub.blocks.routing.RoutingDecisionRecord;
+import io.casehub.blocks.routing.TrustRoutingRequirement;
 import io.casehub.devtown.review.compliance.AuditChainRequirement;
 import io.casehub.devtown.review.compliance.CodeReviewComplianceEvidence;
 import io.casehub.devtown.review.compliance.GdprRequirement;
 import io.casehub.devtown.review.compliance.InclusionProofRecord;
 import io.casehub.devtown.review.compliance.LedgerEventRecord;
-import io.casehub.devtown.review.compliance.RequirementStatus;
 import io.casehub.devtown.review.compliance.ReviewSlaRequirement;
-import io.casehub.devtown.review.compliance.RoutingDecisionRecord;
-import io.casehub.devtown.review.compliance.TrustRoutingRequirement;
 import io.casehub.ledger.model.CaseLedgerEntry;
 import io.casehub.ledger.model.WorkerDecisionEntry;
-import io.casehub.ledger.runtime.model.LedgerEntry;
+import io.casehub.ledger.api.model.LedgerEntry;
 import io.casehub.ledger.runtime.persistence.LedgerPersistenceUnit;
-import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
+import io.casehub.ledger.api.spi.LedgerEntryRepository;
 import io.casehub.ledger.runtime.service.LedgerVerificationService;
 import io.casehub.ledger.runtime.service.model.InclusionProof;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -133,6 +133,12 @@ public class CodeReviewComplianceService {
                 List.of());
     }
 
+    private static final String TRUST_ROUTING_REQUIREMENT_ID = "trust-routing";
+    private static final String TRUST_ROUTING_CITATION =
+        "EU AI Act Art.14 — Human Oversight of AI Routing";
+    private static final String TRUST_ROUTING_MECHANISM =
+        "TrustWeightedAgentStrategy with capability-scoped thresholds";
+
     private TrustRoutingRequirement buildTrustRouting(List<EntrySnapshot> snapshots) {
         List<RoutingDecisionRecord> decisions = snapshots.stream()
                 .filter(s -> s.workerDecision != null)
@@ -144,9 +150,9 @@ public class CodeReviewComplianceService {
                 : RequirementStatus.CLOSED;
 
         return new TrustRoutingRequirement(
-                TrustRoutingRequirement.REQUIREMENT_ID,
-                TrustRoutingRequirement.CITATION,
-                TrustRoutingRequirement.MECHANISM,
+                TRUST_ROUTING_REQUIREMENT_ID,
+                TRUST_ROUTING_CITATION,
+                TRUST_ROUTING_MECHANISM,
                 status,
                 decisions);
     }

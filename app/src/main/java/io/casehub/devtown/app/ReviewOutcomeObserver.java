@@ -11,7 +11,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.jboss.logging.Logger;
@@ -73,8 +72,7 @@ public class ReviewOutcomeObserver {
         // Lookup CaseInstance
         CaseInstance caseInstance;
         try {
-            caseInstance = caseInstanceRepository.findByUuid(event.caseId())
-                    .await().atMost(Duration.ofSeconds(5));
+            caseInstance = caseInstanceRepository.findByUuid(event.caseId());
         } catch (Exception e) {
             LOG.warnf(e, "Failed to lookup CaseInstance for caseId=%s", event.caseId());
             return;

@@ -344,6 +344,15 @@ JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn clean install
 
 **Use `mvn` not `./mvnw`** — maven wrapper not configured on this machine.
 
+### Frontend (Quinoa + casehub-pages)
+
+Frontend lives at `app/src/main/webui/`. Quinoa runs `npm install` and `npm run build` during Maven build.
+
+- `GITHUB_TOKEN` with `read:packages` scope required for `@casehubio` npm packages
+- Dev mode: `mvn quarkus:dev -pl app` hot-reloads both Java and TypeScript
+- TypeScript only: `cd app/src/main/webui && npm run dev` (esbuild watch mode)
+- Type check: `cd app/src/main/webui && npm run typecheck`
+
 ---
 
 ## Ecosystem Conventions

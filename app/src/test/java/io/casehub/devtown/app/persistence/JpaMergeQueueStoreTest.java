@@ -138,17 +138,18 @@ class JpaMergeQueueStoreTest {
         );
 
         store.enqueue(pr, UUID.randomUUID());
-        boolean dequeued = store.dequeue(103, "casehubio/devtown");
+        Optional<QueueEntry> dequeued = store.dequeue(103, "casehubio/devtown");
 
-        assertThat(dequeued).isTrue();
+        assertThat(dequeued).isPresent();
+        assertThat(dequeued.get().status()).isEqualTo(QueueEntryStatus.DEQUEUED);
         assertThat(store.queued()).isEmpty();
     }
 
     @Test
     @Transactional
     void dequeue_returnsFalse_whenNotQueued() {
-        boolean dequeued = store.dequeue(999, "casehubio/nonexistent");
-        assertThat(dequeued).isFalse();
+        Optional<QueueEntry> dequeued = store.dequeue(999, "casehubio/nonexistent");
+        assertThat(dequeued).isEmpty();
     }
 
     @Test
@@ -467,5 +468,61 @@ class JpaMergeQueueStoreTest {
         store.enqueue(pr, UUID.randomUUID());
         boolean result = store.enqueue(pr, UUID.randomUUID());
         assertThat(result).isFalse();
+    }
+
+    @Test
+    @Transactional
+    void completedBatchesSince_filtersCorrectly() {
+        // Batch completed 2 hours ago (backdated via SQL)
+        store.recordBatch("batch-old", UUID.randomUUID(), List.of(700), "casehubio/devtown");
+        store.completeBatch("batch-old", true);
+        em.createQuery("UPDATE BatchEntity b SET b.completedAt = :past WHERE b.batchId = 'batch-old'")
+            .setParameter("past", Instant.now().minus(2, java.time.temporal.ChronoUnit.HOURS))
+            .executeUpdate();
+
+        // Active batch (not completed)
+        store.recordBatch("batch-active", UUID.randomUUID(), List.of(701), "casehubio/devtown");
+
+        // Batch completed now
+        store.recordBatch("batch-recent", UUID.randomUUID(), List.of(702), "casehubio/devtown");
+        store.completeBatch("batch-recent", false);
+
+        // 1-hour window should exclude batch-old, include batch-recent
+        List<BatchRecord> recent = store.completedBatchesSince(Instant.now().minus(1, java.time.temporal.ChronoUnit.HOURS));
+        assertThat(recent).hasSize(1);
+        assertThat(recent.get(0).batchId()).isEqualTo("batch-recent");
+
+        // 24-hour window should include both completed batches
+        List<BatchRecord> all = store.completedBatchesSince(Instant.now().minus(24, java.time.temporal.ChronoUnit.HOURS));
+        assertThat(all).hasSize(2);
+        assertThat(all).allSatisfy(b -> assertThat(b.completedAt()).isNotNull());
+    }
+
+    @Test
+    @Transactional
+    void recentBatchFailureRate_aggregate_crossRepo() {
+        store.recordBatch("batch-a1", UUID.randomUUID(), List.of(710), "casehubio/devtown");
+        store.completeBatch("batch-a1", false);  // failed
+        store.recordBatch("batch-b1", UUID.randomUUID(), List.of(711), "casehubio/engine");
+        store.completeBatch("batch-b1", true);  // succeeded
+
+        // Per-repo: devtown=1.0, engine=0.0
+        // Aggregate: 1 failed / 2 total = 0.5
+        double aggregate = store.recentBatchFailureRate(20);
+        assertThat(aggregate).isCloseTo(0.5, org.assertj.core.data.Offset.offset(0.001));
+    }
+
+    @Test
+    @Transactional
+    void recentBatchFailureRate_aggregate_respectsWindow() {
+        for (int i = 0; i < 10; i++) {
+            store.recordBatch("batch-agg-" + i, UUID.randomUUID(), List.of(720 + i), "casehubio/devtown");
+            store.completeBatch("batch-agg-" + i, i < 8);  // 8 pass, 2 fail
+        }
+        double rateAll = store.recentBatchFailureRate(20);
+        double rate5 = store.recentBatchFailureRate(5);
+        assertThat(rateAll).isCloseTo(0.2, org.assertj.core.data.Offset.offset(0.001));
+        // Window of 5 gets the 5 most recent: indices 5,6,7,8,9 → 7=pass, 8=fail, 9=fail → 2/5 = 0.4
+        assertThat(rate5).isCloseTo(0.4, org.assertj.core.data.Offset.offset(0.001));
     }
 }

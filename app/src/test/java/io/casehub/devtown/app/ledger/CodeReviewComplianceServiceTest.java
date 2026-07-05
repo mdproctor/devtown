@@ -2,14 +2,14 @@ package io.casehub.devtown.app.ledger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.blocks.routing.RequirementStatus;
 import io.casehub.devtown.review.compliance.CodeReviewComplianceEvidence;
-import io.casehub.devtown.review.compliance.RequirementStatus;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.model.CaseLedgerEntry;
 import io.casehub.ledger.model.WorkerDecisionEntry;
-import io.casehub.ledger.runtime.model.LedgerEntry;
-import io.casehub.ledger.runtime.model.supplement.ComplianceSupplement;
-import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
+import io.casehub.ledger.api.model.LedgerEntry;
+import io.casehub.ledger.api.model.supplement.ComplianceSupplement;
+import io.casehub.ledger.api.spi.LedgerEntryRepository;
 import io.casehub.platform.api.identity.ActorType;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.casehub.platform.api.identity.CurrentPrincipal;
@@ -86,7 +86,7 @@ class CodeReviewComplianceServiceTest {
         mde.occurredAt = now.plusMillis(200);
         mde.causedByEntryId = cle.id;
 
-        ComplianceSupplement cs = new ComplianceSupplement();
+        DevtownComplianceSupplement cs = new DevtownComplianceSupplement();
         cs.algorithmRef = "casehub-devtown:pr-review-v1";
         cs.humanOverrideAvailable = true;
         cs.contestationUri = "/api/reviews/4300/contest";

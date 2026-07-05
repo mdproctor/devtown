@@ -29,6 +29,7 @@
 
   <properties>
     <quarkus-mcp-server.version>1.11.1</quarkus-mcp-server.version>
+    <quarkus-quinoa.version>2.8.3</quarkus-quinoa.version>
   </properties>
 
   <dependencyManagement>
@@ -60,11 +61,25 @@
         <version>${project.version}</version>
       </dependency>
 
+      <!-- casehub-neocortex memory API (MemoryDomain used in devtown-domain) -->
+      <dependency>
+        <groupId>io.casehub</groupId>
+        <artifactId>casehub-neocortex-memory-api</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
       <!-- Quarkus MCP Server HTTP -->
       <dependency>
         <groupId>io.quarkiverse.mcp</groupId>
         <artifactId>quarkus-mcp-server-http</artifactId>
         <version>${quarkus-mcp-server.version}</version>
+      </dependency>
+
+      <!-- Quarkus Quinoa -->
+      <dependency>
+        <groupId>io.quarkiverse.quinoa</groupId>
+        <artifactId>quarkus-quinoa</artifactId>
+        <version>${quarkus-quinoa.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

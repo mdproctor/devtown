@@ -81,7 +81,7 @@ class SlaBreachLifecycleTest {
 
         // Case context unchanged after Tier 1 (only Fail triggers case signal)
         var instanceAfterTier1 = caseInstanceRepository.findByUuid(caseId)
-                .await().atMost(java.time.Duration.ofSeconds(2));
+                ;
         assertThat(instanceAfterTier1.getCaseContext().getPath("humanApproval"))
                 .as("humanApproval context unchanged after escalation").isNull();
 
@@ -91,7 +91,7 @@ class SlaBreachLifecycleTest {
 
         await().atMost(10, SECONDS).pollInterval(100, MILLISECONDS).untilAsserted(() -> {
             var instance = caseInstanceRepository.findByUuid(caseId)
-                    .await().atMost(java.time.Duration.ofSeconds(2));
+                    ;
             assertThat(instance).isNotNull();
             Object outcome = instance.getCaseContext().getPath("humanApproval.outcome");
             assertThat(outcome)

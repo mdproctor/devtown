@@ -9,8 +9,8 @@ import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.ledger.api.model.LedgerEntryType;
-import io.casehub.ledger.runtime.model.LedgerEntry;
-import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
+import io.casehub.ledger.api.model.LedgerEntry;
+import io.casehub.ledger.api.spi.LedgerEntryRepository;
 import io.casehub.platform.api.identity.ActorType;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -151,6 +151,6 @@ class MergeDecisionObserverTest {
                 "changedPaths", List.of("src/Main.java")));
         ci.setCaseContext(ctx);
 
-        caseInstanceRepo.save(ci, tenancyId).await().atMost(Duration.ofSeconds(5));
+        caseInstanceRepo.save(ci, tenancyId);
     }
 }

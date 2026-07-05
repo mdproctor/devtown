@@ -6,22 +6,17 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.devtown.app.MergeQueueService;
 import io.casehub.devtown.app.PrReviewCaseHub;
-import io.casehub.devtown.merge.BatchRecord;
-import io.casehub.devtown.queue.Batch;
+import io.casehub.devtown.app.governance.GovernanceQueryService;
 import io.casehub.devtown.domain.queue.PriorityLane;
-import io.casehub.devtown.queue.QueuedPr;
 import io.casehub.devtown.review.PrPayload;
 import io.casehub.ledger.runtime.service.LedgerProvExportService;
 import io.casehub.ledger.runtime.service.TrustGateService;
 import io.casehub.ledger.runtime.service.federation.TrustExportService;
-import io.casehub.ledger.runtime.service.federation.TrustExportPayload;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.identity.TenancyConstants;
-import io.casehub.platform.api.memory.CaseMemoryStore;
-import io.casehub.qhorus.api.message.MessageType;
-import io.casehub.qhorus.runtime.message.Commitment;
-import io.casehub.qhorus.runtime.store.CommitmentStore;
-import com.fasterxml.jackson.databind.JsonNode;
+import io.casehub.neocortex.memory.CaseMemoryStore;
+import io.casehub.qhorus.api.message.Commitment;
+import io.casehub.qhorus.api.store.CommitmentStore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.enterprise.inject.Instance;
@@ -44,6 +39,9 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class DevtownMcpToolsTest {
+
+    @Mock
+    GovernanceQueryService governanceQuery;
 
     @Mock
     PrReviewCaseTracker tracker;
@@ -114,9 +112,12 @@ class DevtownMcpToolsTest {
 
     @Test
     void getQueueStatus_emptyTracker_returnsZeroCounts() {
-        when(tracker.activeCases()).thenReturn(List.of());
+        GovernanceQueryService.QueueStatus emptyStatus = new GovernanceQueryService.QueueStatus(
+            0, Map.of(), List.of()
+        );
+        when(governanceQuery.queueStatus()).thenReturn(emptyStatus);
 
-        DevtownMcpTools.QueueStatus status = tools.getQueueStatus();
+        GovernanceQueryService.QueueStatus status = tools.getQueueStatus();
 
         assertThat(status.total()).isZero();
         assertThat(status.countsByStatus()).isEmpty();
@@ -126,33 +127,26 @@ class DevtownMcpToolsTest {
     @Test
     void getQueueStatus_withRegisteredCases_returnsCorrectCountsAndReviews() {
         Instant now = Instant.now();
-        CaseInfo case1 = new CaseInfo(
-            UUID.randomUUID(),
-            TenancyConstants.DEFAULT_TENANT_ID,
-            testPayload,
-            now,
-            now,
-            CaseTrackingStatus.RUNNING
+        var review1 = new GovernanceQueryService.ActiveReview(
+            UUID.randomUUID(), "casehubio/devtown", 42, "alice", 250, "RUNNING", now, now
         );
-        CaseInfo case2 = new CaseInfo(
-            UUID.randomUUID(),
-            TenancyConstants.DEFAULT_TENANT_ID,
-            testPayload,
-            now,
-            now,
-            CaseTrackingStatus.WAITING
+        var review2 = new GovernanceQueryService.ActiveReview(
+            UUID.randomUUID(), "casehubio/devtown", 42, "alice", 250, "WAITING", now, now
         );
+        Map<String, Integer> counts = Map.of("RUNNING", 1, "WAITING", 1);
+        GovernanceQueryService.QueueStatus status = new GovernanceQueryService.QueueStatus(
+            2, counts, List.of(review1, review2)
+        );
+        when(governanceQuery.queueStatus()).thenReturn(status);
 
-        when(tracker.activeCases()).thenReturn(List.of(case1, case2));
+        GovernanceQueryService.QueueStatus result = tools.getQueueStatus();
 
-        DevtownMcpTools.QueueStatus status = tools.getQueueStatus();
-
-        assertThat(status.total()).isEqualTo(2);
-        assertThat(status.countsByStatus()).containsEntry("RUNNING", 1);
-        assertThat(status.countsByStatus()).containsEntry("WAITING", 1);
-        assertThat(status.reviews()).hasSize(2);
-        assertThat(status.reviews().get(0).repo()).isEqualTo("casehubio/devtown");
-        assertThat(status.reviews().get(0).prNumber()).isEqualTo(42);
+        assertThat(result.total()).isEqualTo(2);
+        assertThat(result.countsByStatus()).containsEntry("RUNNING", 1);
+        assertThat(result.countsByStatus()).containsEntry("WAITING", 1);
+        assertThat(result.reviews()).hasSize(2);
+        assertThat(result.reviews().get(0).repo()).isEqualTo("casehubio/devtown");
+        assertThat(result.reviews().get(0).prNumber()).isEqualTo(42);
     }
 
     @Test
@@ -167,62 +161,55 @@ class DevtownMcpToolsTest {
             "RUNNING",
             "system"
         );
-        when(tracker.recentEvents(50, null)).thenReturn(List.of(event));
+        when(governanceQuery.recentEvents(50, null)).thenReturn(List.of(event));
 
         List<TrackedEvent> events = tools.getRecentEvents(null, null);
 
         assertThat(events).hasSize(1);
         assertThat(events.get(0).eventType()).isEqualTo("CaseStarted");
-        verify(tracker).recentEvents(50, null);
+        verify(governanceQuery).recentEvents(50, null);
     }
 
     @Test
     void getRecentEvents_withLimitAndSince_passesParameters() {
         Instant since = Instant.now().minus(1, ChronoUnit.HOURS);
-        when(tracker.recentEvents(eq(10), any(Instant.class))).thenReturn(List.of());
+        when(governanceQuery.recentEvents(eq(10), any(Instant.class))).thenReturn(List.of());
 
         List<TrackedEvent> events = tools.getRecentEvents(10, since.toString());
 
-        verify(tracker).recentEvents(eq(10), argThat(instant ->
+        verify(governanceQuery).recentEvents(eq(10), argThat(instant ->
             instant != null && instant.equals(since)
         ));
     }
 
     @Test
     void getSystemHealth_assemblesFromMultipleSources() {
-        when(tracker.activeCases()).thenReturn(List.of(testCaseInfo));
-        when(commitmentStore.findAllOpen()).thenReturn(List.of());
+        GovernanceQueryService.SystemHealth health = new GovernanceQueryService.SystemHealth(
+            1, 0, Map.of(), 0, 0
+        );
+        when(governanceQuery.systemHealth()).thenReturn(health);
 
-        // Mock TrustExportPayload
-        TrustExportPayload mockPayload = mock(TrustExportPayload.class);
-        when(mockPayload.actors()).thenReturn(List.of());  // Empty fleet for simplicity
-        when(trustExportService.exportAll(0.0)).thenReturn(mockPayload);
+        GovernanceQueryService.SystemHealth result = tools.getSystemHealth();
 
-        DevtownMcpTools.SystemHealth health = tools.getSystemHealth();
-
-        assertThat(health.activeCases()).isEqualTo(1);
-        assertThat(health.fleetSize()).isZero();
-        assertThat(health.openCommitments()).isZero();
+        assertThat(result.activeCases()).isEqualTo(1);
+        assertThat(result.fleetSize()).isZero();
+        assertThat(result.openCommitments()).isZero();
     }
 
     @Test
     void listProblems_findsStalledCases() {
         Instant staleTime = Instant.now().minus(90, ChronoUnit.MINUTES);
-        CaseInfo stalledCase = new CaseInfo(
+        var problem = new GovernanceQueryService.Problem(
+            "stalled_case",
+            "warning",
+            "Case stalled for 90 minutes",
             testCaseId,
-            TenancyConstants.DEFAULT_TENANT_ID,
-            testPayload,
-            staleTime,
-            staleTime,
-            CaseTrackingStatus.RUNNING
+            null,
+            staleTime
         );
+        when(governanceQuery.problems(60)).thenReturn(List.of(problem));
 
-        when(tracker.stalledCases(60)).thenReturn(List.of(stalledCase));
-        when(commitmentStore.findExpiredBefore(any(Instant.class))).thenReturn(List.of());
-        when(tracker.recentEvents(100, null)).thenReturn(List.of());
-        when(mergeQueueService.queuedPrs()).thenReturn(List.of());
-
-        List<DevtownMcpTools.Problem> problems = tools.listProblems(60);
+        List<GovernanceQueryService.Problem> problems = tools.listProblems(60);
 
         assertThat(problems).hasSize(1);
         assertThat(problems.get(0).category()).isEqualTo("stalled_case");
@@ -233,20 +220,17 @@ class DevtownMcpToolsTest {
     @Test
     void listProblems_findsExpiredCommitments() {
         Instant expired = Instant.now().minus(10, ChronoUnit.MINUTES);
-        Commitment commitment = new Commitment();
-        commitment.id = UUID.randomUUID();
-        commitment.channelId = testCaseId;
-        commitment.obligor = "reviewer-1";
-        commitment.messageType = MessageType.COMMAND;
-        commitment.expiresAt = expired;
-        commitment.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
+        var problem = new GovernanceQueryService.Problem(
+            "expired_commitment",
+            "error",
+            "Commitment expired 10 minutes ago",
+            null,
+            "reviewer-1",
+            expired
+        );
+        when(governanceQuery.problems(60)).thenReturn(List.of(problem));
 
-        when(tracker.stalledCases(60)).thenReturn(List.of());
-        when(commitmentStore.findExpiredBefore(any(Instant.class))).thenReturn(List.of(commitment));
-        when(tracker.recentEvents(100, null)).thenReturn(List.of());
-        when(mergeQueueService.queuedPrs()).thenReturn(List.of());
-
-        List<DevtownMcpTools.Problem> problems = tools.listProblems(60);
+        List<GovernanceQueryService.Problem> problems = tools.listProblems(60);
 
         assertThat(problems).hasSize(1);
         assertThat(problems.get(0).category()).isEqualTo("expired_commitment");
@@ -256,22 +240,18 @@ class DevtownMcpToolsTest {
 
     @Test
     void listProblems_findsFailedWorkers() {
-        TrackedEvent failedEvent = new TrackedEvent(
-            Instant.now(),
+        Instant now = Instant.now();
+        var problem = new GovernanceQueryService.Problem(
+            "worker_failure",
+            "error",
+            "Worker failed",
             testCaseId,
-            "casehubio/devtown",
-            42,
-            "ReviewFailed",
-            "FAILED",
-            "reviewer-1"
+            "reviewer-1",
+            now
         );
+        when(governanceQuery.problems(60)).thenReturn(List.of(problem));
 
-        when(tracker.stalledCases(60)).thenReturn(List.of());
-        when(commitmentStore.findExpiredBefore(any(Instant.class))).thenReturn(List.of());
-        when(tracker.recentEvents(100, null)).thenReturn(List.of(failedEvent));
-        when(mergeQueueService.queuedPrs()).thenReturn(List.of());
-
-        List<DevtownMcpTools.Problem> problems = tools.listProblems(60);
+        List<GovernanceQueryService.Problem> problems = tools.listProblems(60);
 
         assertThat(problems).hasSize(1);
         assertThat(problems.get(0).category()).isEqualTo("worker_failure");
@@ -280,7 +260,8 @@ class DevtownMcpToolsTest {
 
     @Test
     void inspectReview_unknownCase_throwsIllegalArgumentException() {
-        when(tracker.getCase(testCaseId)).thenReturn(null);
+        when(governanceQuery.reviewDetail(eq(testCaseId), anyString()))
+            .thenThrow(new IllegalArgumentException("Case not found: " + testCaseId));
 
         assertThatThrownBy(() -> tools.inspectReview(testCaseId.toString()))
             .isInstanceOf(IllegalArgumentException.class)
@@ -289,61 +270,50 @@ class DevtownMcpToolsTest {
 
     @Test
     void inspectReview_knownCase_returnsDetailWithTimeline() {
-        when(tracker.getCase(testCaseId)).thenReturn(testCaseInfo);
-
         Instant now = Instant.now();
-        // Timeline events
-        CaseEventLogRecord timelineEvent = new CaseEventLogRecord(
-            CaseHubEventType.CASE_STARTED, EventStreamType.CASE, now,
-            objectMapper.createObjectNode(), objectMapper.createObjectNode());
+        var timelineEvent = new GovernanceQueryService.EventEntry(
+            now, "CASE_STARTED", "system", "Case started"
+        );
+        var capability = new GovernanceQueryService.CapabilityStatus(
+            "code-analysis", "COMPLETED", "APPROVED", now.plusSeconds(10)
+        );
+        var detail = new GovernanceQueryService.ReviewDetail(
+            testCaseId,
+            testPayload,
+            List.of(timelineEvent),
+            List.of(capability)
+        );
+        when(governanceQuery.reviewDetail(eq(testCaseId), anyString())).thenReturn(detail);
 
-        when(caseHubRuntime.eventLog(testCaseId))
-            .thenReturn(CompletableFuture.completedFuture(List.of(timelineEvent)));
+        GovernanceQueryService.ReviewDetail result = tools.inspectReview(testCaseId.toString());
 
-        // Worker events for capability resolution
-        ObjectNode capMeta = objectMapper.createObjectNode().put("capabilityName", "code-analysis");
-        CaseEventLogRecord workerEvent = new CaseEventLogRecord(
-            CaseHubEventType.WORKER_EXECUTION_COMPLETED, EventStreamType.CASE, now.plusSeconds(10),
-            objectMapper.createObjectNode(), capMeta);
-
-        when(caseHubRuntime.eventLog(eq(testCaseId), anySet()))
-            .thenReturn(CompletableFuture.completedFuture(List.of(workerEvent)));
-
-        DevtownMcpTools.ReviewDetail detail = tools.inspectReview(testCaseId.toString());
-
-        assertThat(detail.caseId()).isEqualTo(testCaseId);
-        assertThat(detail.pr()).isEqualTo(testPayload);
-        assertThat(detail.timeline()).hasSize(1);
-        assertThat(detail.capabilities()).hasSize(1);
-        assertThat(detail.capabilities().get(0).name()).isEqualTo("code-analysis");
-        assertThat(detail.capabilities().get(0).status()).isEqualTo("COMPLETED");
+        assertThat(result.caseId()).isEqualTo(testCaseId);
+        assertThat(result.pr()).isEqualTo(testPayload);
+        assertThat(result.timeline()).hasSize(1);
+        assertThat(result.capabilities()).hasSize(1);
+        assertThat(result.capabilities().get(0).name()).isEqualTo("code-analysis");
+        assertThat(result.capabilities().get(0).status()).isEqualTo("COMPLETED");
     }
 
     @Test
     void getReviewerHealth_returnsCommitmentCountAndTrustScores() {
-        Commitment commitment = new Commitment();
-        commitment.id = UUID.randomUUID();
-        commitment.channelId = testCaseId;
-        commitment.obligor = "reviewer-1";
-        commitment.messageType = MessageType.COMMAND;
-        commitment.expiresAt = Instant.now().plusSeconds(3600);
-        commitment.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
+        var health = new GovernanceQueryService.ReviewerHealth(
+            "reviewer-1",
+            1,
+            Map.of("code-analysis", 0.75, "security-review", 0.82),
+            Map.of("review-thoroughness", 0.80),
+            5,
+            List.of()
+        );
+        when(governanceQuery.reviewerHealth("reviewer-1")).thenReturn(health);
 
-        when(commitmentStore.findOpenByObligor("reviewer-1")).thenReturn(List.of(commitment));
-        when(trustGateService.allCapabilityScores("reviewer-1"))
-            .thenReturn(Map.of("code-analysis", 0.75, "security-review", 0.82));
-        when(trustGateService.allDimensionScores("reviewer-1"))
-            .thenReturn(Map.of("review-thoroughness", 0.80));
-        when(trustGateService.decisionCount(eq("reviewer-1"), anyString())).thenReturn(5);
-        when(tracker.recentEvents(100, null)).thenReturn(List.of());
+        GovernanceQueryService.ReviewerHealth result = tools.getReviewerHealth("reviewer-1");
 
-        DevtownMcpTools.ReviewerHealth health = tools.getReviewerHealth("reviewer-1");
-
-        assertThat(health.reviewerId()).isEqualTo("reviewer-1");
-        assertThat(health.openCommitments()).isEqualTo(1);
-        assertThat(health.trustByCapability()).containsEntry("code-analysis", 0.75);
-        assertThat(health.trustByDimension()).containsEntry("review-thoroughness", 0.80);
-        assertThat(health.totalDecisions()).isGreaterThan(0);
+        assertThat(result.reviewerId()).isEqualTo("reviewer-1");
+        assertThat(result.openCommitments()).isEqualTo(1);
+        assertThat(result.trustByCapability()).containsEntry("code-analysis", 0.75);
+        assertThat(result.trustByDimension()).containsEntry("review-thoroughness", 0.80);
+        assertThat(result.totalDecisions()).isGreaterThan(0);
     }
 
     @Test
@@ -470,10 +440,12 @@ class DevtownMcpToolsTest {
 
     @Test
     void getMergeQueue_emptyQueue_returnsZeroCounts() {
-        when(mergeQueueService.queuedPrs()).thenReturn(List.of());
-        when(mergeQueueService.activeBatches()).thenReturn(Map.<String, BatchRecord>of());
+        var emptyStatus = new GovernanceQueryService.MergeQueueStatus(
+            0, 0, List.of(), List.of()
+        );
+        when(governanceQuery.mergeQueue()).thenReturn(emptyStatus);
 
-        DevtownMcpTools.MergeQueueStatus status = tools.getMergeQueue();
+        GovernanceQueryService.MergeQueueStatus status = tools.getMergeQueue();
 
         assertThat(status.queuedCount()).isZero();
         assertThat(status.activeBatchCount()).isZero();
@@ -484,30 +456,36 @@ class DevtownMcpToolsTest {
     @Test
     void getMergeQueue_withQueuedPrsAndBatches_returnsCorrectState() {
         Instant enqueued = Instant.now().minus(30, ChronoUnit.MINUTES);
-        QueuedPr pr = new QueuedPr(101, "casehubio/devtown", "sha1", "alice", 0.85, PriorityLane.HIGH, enqueued, java.util.Set.of());
-
         UUID batchCaseId = UUID.randomUUID();
-        BatchRecord batchRecord = new BatchRecord("batch-1", batchCaseId, List.of(101), "casehubio/devtown", Instant.now(), null, null);
 
-        when(mergeQueueService.queuedPrs()).thenReturn(List.of(pr));
-        when(mergeQueueService.activeBatches()).thenReturn(Map.of("batch-1", batchRecord));
+        var queuedPr = new GovernanceQueryService.QueuedPrEntry(
+            101, "casehubio/devtown", "sha1", "alice", 0.85, "HIGH", enqueued, 30, java.util.Set.of()
+        );
+        var batchSummary = new GovernanceQueryService.ActiveBatchEntry(
+            batchCaseId, "batch-1", 1, "low"
+        );
+        var status = new GovernanceQueryService.MergeQueueStatus(
+            1, 1, List.of(queuedPr), List.of(batchSummary)
+        );
+        when(governanceQuery.mergeQueue()).thenReturn(status);
 
-        DevtownMcpTools.MergeQueueStatus status = tools.getMergeQueue();
+        GovernanceQueryService.MergeQueueStatus result = tools.getMergeQueue();
 
-        assertThat(status.queuedCount()).isEqualTo(1);
-        assertThat(status.activeBatchCount()).isEqualTo(1);
-        assertThat(status.queuedPrs()).hasSize(1);
-        assertThat(status.queuedPrs().get(0).number()).isEqualTo(101);
-        assertThat(status.queuedPrs().get(0).priorityLane()).isEqualTo("HIGH");
-        assertThat(status.queuedPrs().get(0).waitMinutes()).isGreaterThanOrEqualTo(29);
-        assertThat(status.activeBatches()).hasSize(1);
-        assertThat(status.activeBatches().get(0).batchId()).isEqualTo("batch-1");
+        assertThat(result.queuedCount()).isEqualTo(1);
+        assertThat(result.activeBatchCount()).isEqualTo(1);
+        assertThat(result.queuedPrs()).hasSize(1);
+        assertThat(result.queuedPrs().get(0).number()).isEqualTo(101);
+        assertThat(result.queuedPrs().get(0).priorityLane()).isEqualTo("HIGH");
+        assertThat(result.queuedPrs().get(0).waitMinutes()).isGreaterThanOrEqualTo(29);
+        assertThat(result.activeBatches()).hasSize(1);
+        assertThat(result.activeBatches().get(0).batchId()).isEqualTo("batch-1");
     }
 
     @Test
     void getBatchStatus_unknownBatch_throws() {
         UUID unknownId = UUID.randomUUID();
-        when(mergeQueueService.activeBatches()).thenReturn(Map.<String, BatchRecord>of());
+        when(governanceQuery.batchStatus(unknownId))
+            .thenThrow(new IllegalArgumentException("No active batch found for caseId: " + unknownId));
 
         assertThatThrownBy(() -> tools.getBatchStatus(unknownId.toString()))
             .isInstanceOf(IllegalArgumentException.class)
@@ -517,56 +495,74 @@ class DevtownMcpToolsTest {
     @Test
     void getBatchStatus_knownBatch_returnsDetail() {
         UUID batchCaseId = UUID.randomUUID();
-        BatchRecord batchRecord = new BatchRecord("batch-2", batchCaseId, List.of(10, 11), "casehubio/devtown", Instant.now(), null, null);
+        var pr1 = new GovernanceQueryService.BatchPrEntry(10, "casehubio/devtown", "sha1", "alice", 0.8, "NORMAL");
+        var pr2 = new GovernanceQueryService.BatchPrEntry(11, "casehubio/devtown", "sha2", "bob", 0.7, "NORMAL");
+        var status = new GovernanceQueryService.BatchStatus(
+            "batch-2", batchCaseId, List.of(pr1, pr2), "low", "sequential"
+        );
+        when(governanceQuery.batchStatus(batchCaseId)).thenReturn(status);
 
-        when(mergeQueueService.activeBatches()).thenReturn(Map.of("batch-2", batchRecord));
+        GovernanceQueryService.BatchStatus result = tools.getBatchStatus(batchCaseId.toString());
 
-        DevtownMcpTools.BatchStatus status = tools.getBatchStatus(batchCaseId.toString());
-
-        assertThat(status.batchId()).isEqualTo("batch-2");
-        assertThat(status.caseId()).isEqualTo(batchCaseId);
-        assertThat(status.prs()).hasSize(2);
-        assertThat(status.prs().get(0).number()).isEqualTo(10);
-        assertThat(status.prs().get(1).number()).isEqualTo(11);
+        assertThat(result.batchId()).isEqualTo("batch-2");
+        assertThat(result.caseId()).isEqualTo(batchCaseId);
+        assertThat(result.prs()).hasSize(2);
+        assertThat(result.prs().get(0).number()).isEqualTo(10);
+        assertThat(result.prs().get(1).number()).isEqualTo(11);
     }
 
     @Test
     void getMergeQueueMetrics_emptyQueue_returnsZeros() {
-        when(mergeQueueService.queuedPrs()).thenReturn(List.of());
-        when(mergeQueueService.activeBatches()).thenReturn(Map.<String, BatchRecord>of());
+        var emptyMetrics = new GovernanceQueryService.MergeQueueMetrics(
+            0, 0, 0L, 0L, 0.0, Map.of(), 0, 0.0, Map.of()
+        );
+        when(governanceQuery.mergeQueueMetrics()).thenReturn(emptyMetrics);
 
-        DevtownMcpTools.MergeQueueMetrics metrics = tools.getMergeQueueMetrics();
+        GovernanceQueryService.MergeQueueMetrics metrics = tools.getMergeQueueMetrics();
 
         assertThat(metrics.queueDepth()).isZero();
         assertThat(metrics.activeBatches()).isZero();
         assertThat(metrics.oldestWaitMinutes()).isZero();
+        assertThat(metrics.avgWaitMinutes()).isZero();
         assertThat(metrics.avgTrustScore()).isZero();
         assertThat(metrics.countsByLane()).isEmpty();
+        assertThat(metrics.throughput24h()).isZero();
+        assertThat(metrics.failureRate()).isZero();
+        assertThat(metrics.batchSizeDistribution()).isEmpty();
     }
 
     @Test
     void getMergeQueueMetrics_withPrs_computesCorrectly() {
-        Instant old = Instant.now().minus(60, ChronoUnit.MINUTES);
-        Instant recent = Instant.now().minus(10, ChronoUnit.MINUTES);
-        QueuedPr pr1 = new QueuedPr(1, "casehubio/devtown", "sha1", "alice", 0.6, PriorityLane.NORMAL, old, java.util.Set.of());
-        QueuedPr pr2 = new QueuedPr(2, "casehubio/devtown", "sha2", "bob", 0.8, PriorityLane.HIGH, recent, java.util.Set.of());
+        var metrics = new GovernanceQueryService.MergeQueueMetrics(
+            2,              // queueDepth
+            0,              // activeBatches
+            60L,            // oldestWaitMinutes
+            35L,            // avgWaitMinutes
+            0.7,            // avgTrustScore
+            Map.of("NORMAL", 1, "HIGH", 1),
+            1,              // throughput24h
+            0.25,           // failureRate
+            Map.of(2, 1)    // batchSizeDistribution
+        );
+        when(governanceQuery.mergeQueueMetrics()).thenReturn(metrics);
 
-        when(mergeQueueService.queuedPrs()).thenReturn(List.of(pr1, pr2));
-        when(mergeQueueService.activeBatches()).thenReturn(Map.<String, BatchRecord>of());
+        GovernanceQueryService.MergeQueueMetrics result = tools.getMergeQueueMetrics();
 
-        DevtownMcpTools.MergeQueueMetrics metrics = tools.getMergeQueueMetrics();
-
-        assertThat(metrics.queueDepth()).isEqualTo(2);
-        assertThat(metrics.oldestWaitMinutes()).isGreaterThanOrEqualTo(59);
-        assertThat(metrics.avgTrustScore()).isCloseTo(0.7, org.assertj.core.data.Offset.offset(0.01));
-        assertThat(metrics.countsByLane()).containsEntry("NORMAL", 1);
-        assertThat(metrics.countsByLane()).containsEntry("HIGH", 1);
+        assertThat(result.queueDepth()).isEqualTo(2);
+        assertThat(result.oldestWaitMinutes()).isGreaterThanOrEqualTo(59);
+        assertThat(result.avgWaitMinutes()).isGreaterThanOrEqualTo(34);
+        assertThat(result.avgTrustScore()).isCloseTo(0.7, org.assertj.core.data.Offset.offset(0.01));
+        assertThat(result.countsByLane()).containsEntry("NORMAL", 1).containsEntry("HIGH", 1);
+        assertThat(result.throughput24h()).isEqualTo(1);
+        assertThat(result.failureRate()).isCloseTo(0.25, org.assertj.core.data.Offset.offset(0.01));
+        assertThat(result.batchSizeDistribution()).containsEntry(2, 1);
     }
 
     // ==================== Merge Queue Write Tools ====================
 
     @Test
     void enqueuePr_validInputs_enqueuesSuccessfully() {
+        when(mergeQueueService.enqueue(any())).thenReturn(true);
         DevtownMcpTools.EnqueueResult result = tools.enqueuePr(
             "casehubio/devtown", 99, "deadbeef", "alice", 0.75, "HIGH"
         );
@@ -574,9 +570,15 @@ class DevtownMcpToolsTest {
         assertThat(result.prNumber()).isEqualTo(99);
         assertThat(result.lane()).isEqualTo("HIGH");
         assertThat(result.status()).isEqualTo("ENQUEUED");
-        verify(mergeQueueService).enqueue(argThat(pr ->
-            pr.number() == 99 && pr.headSha().equals("deadbeef") && pr.lane() == PriorityLane.HIGH
-        ));
+    }
+
+    @Test
+    void enqueuePr_duplicate_returnsAlreadyQueued() {
+        when(mergeQueueService.enqueue(any())).thenReturn(false);
+        DevtownMcpTools.EnqueueResult result = tools.enqueuePr(
+            "casehubio/devtown", 99, "deadbeef", "alice", 0.75, "HIGH"
+        );
+        assertThat(result.status()).isEqualTo("ALREADY_QUEUED");
     }
 
     @Test
@@ -634,31 +636,23 @@ class DevtownMcpToolsTest {
     // ==================== QUEUE_SLA_BREACH in listProblems ====================
 
     @Test
-    void listProblems_detectsQueueSlaBreaches() throws Exception {
-        // Set SLA threshold (not injected by @InjectMocks)
-        java.lang.reflect.Field slaField = DevtownMcpTools.class.getDeclaredField("queueSlaMinutes");
-        slaField.setAccessible(true);
-        slaField.setInt(tools, 120);
-
-        // PR queued 180 minutes ago — exceeds 120-minute SLA
+    void listProblems_detectsQueueSlaBreaches() {
         Instant longAgo = Instant.now().minus(180, ChronoUnit.MINUTES);
-        QueuedPr breachPr = new QueuedPr(77, "casehubio/devtown", "sha-old", "dave", 0.5, PriorityLane.NORMAL, longAgo, java.util.Set.of());
+        var problem = new GovernanceQueryService.Problem(
+            "queue_sla_breach",
+            "warning",
+            "PR #77 (CRITICAL lane) has waited 180 minutes, exceeding SLA of 60 minutes",
+            null,
+            "dave",
+            longAgo
+        );
+        when(governanceQuery.problems(60)).thenReturn(List.of(problem));
 
-        // PR queued 10 minutes ago — within SLA
-        Instant recent = Instant.now().minus(10, ChronoUnit.MINUTES);
-        QueuedPr okPr = new QueuedPr(78, "casehubio/devtown", "sha-new", "eve", 0.8, PriorityLane.HIGH, recent, java.util.Set.of());
-
-        when(tracker.stalledCases(60)).thenReturn(List.of());
-        when(commitmentStore.findExpiredBefore(any(Instant.class))).thenReturn(List.of());
-        when(tracker.recentEvents(100, null)).thenReturn(List.of());
-        when(mergeQueueService.queuedPrs()).thenReturn(List.of(breachPr, okPr));
-
-        List<DevtownMcpTools.Problem> problems = tools.listProblems(60);
+        List<GovernanceQueryService.Problem> problems = tools.listProblems(60);
 
         assertThat(problems).hasSize(1);
         assertThat(problems.get(0).category()).isEqualTo("queue_sla_breach");
-        assertThat(problems.get(0).severity()).isEqualTo("warning");
-        assertThat(problems.get(0).description()).contains("PR #77");
+        assertThat(problems.get(0).description()).contains("PR #77").contains("CRITICAL");
         assertThat(problems.get(0).actorId()).isEqualTo("dave");
     }
 

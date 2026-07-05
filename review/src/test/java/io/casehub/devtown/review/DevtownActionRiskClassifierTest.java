@@ -4,16 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.worker.api.PlannedAction;
 import io.casehub.api.spi.RiskDecision;
+import io.casehub.api.spi.routing.StaticSetStrategy;
 import io.casehub.devtown.domain.DevtownActionType;
 import io.casehub.devtown.domain.HumanDecision;
 import io.casehub.devtown.domain.HumanOversight;
-import io.casehub.devtown.domain.preferences.BooleanPreference;
-import io.casehub.devtown.domain.preferences.IntPreference;
 import io.casehub.devtown.domain.preferences.RiskPreferenceKeys;
-import io.casehub.devtown.domain.sla.StringPreference;
 import io.casehub.platform.api.preferences.MapPreferences;
 import io.casehub.platform.api.preferences.Preferences;
-import java.util.List;
+
 import java.util.Map;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -49,7 +47,7 @@ class DevtownActionRiskClassifierTest {
             assertThat(result).isInstanceOf(RiskDecision.GateRequired.class);
             var gate = (RiskDecision.GateRequired) result;
             assertThat(gate.reversible()).isFalse();
-            assertThat(gate.candidateGroups()).contains(HumanDecision.PR_APPROVAL);
+            assertThat(gate.candidateGroups()).isEqualTo(StaticSetStrategy.of(HumanDecision.PR_APPROVAL));
             assertThat(gate.scope()).isEqualTo(DevtownActionType.PR_FORCE_MERGE);
         }
 
@@ -60,7 +58,7 @@ class DevtownActionRiskClassifierTest {
             assertThat(result).isInstanceOf(RiskDecision.GateRequired.class);
             var gate = (RiskDecision.GateRequired) result;
             assertThat(gate.reversible()).isFalse();
-            assertThat(gate.candidateGroups()).contains(HumanOversight.GENERAL);
+            assertThat(gate.candidateGroups()).isEqualTo(StaticSetStrategy.of(HumanOversight.GENERAL));
         }
 
         @Test
@@ -82,7 +80,7 @@ class DevtownActionRiskClassifierTest {
             assertThat(result).isInstanceOf(RiskDecision.GateRequired.class);
             var gate = (RiskDecision.GateRequired) result;
             assertThat(gate.reversible()).isFalse();
-            assertThat(gate.candidateGroups()).contains(HumanDecision.PR_APPROVAL);
+            assertThat(gate.candidateGroups()).isEqualTo(StaticSetStrategy.of(HumanDecision.PR_APPROVAL));
         }
 
         @Test
@@ -128,7 +126,7 @@ class DevtownActionRiskClassifierTest {
             assertThat(result).isInstanceOf(RiskDecision.GateRequired.class);
             var gate = (RiskDecision.GateRequired) result;
             assertThat(gate.reversible()).isTrue();
-            assertThat(gate.candidateGroups()).contains(HumanOversight.ROUTING_REVIEW);
+            assertThat(gate.candidateGroups()).isEqualTo(StaticSetStrategy.of(HumanOversight.ROUTING_REVIEW));
         }
 
         @Test
@@ -186,7 +184,7 @@ class DevtownActionRiskClassifierTest {
             assertThat(result).isInstanceOf(RiskDecision.GateRequired.class);
             var gate = (RiskDecision.GateRequired) result;
             assertThat(gate.reversible()).isTrue();
-            assertThat(gate.candidateGroups()).contains(HumanOversight.GENERAL);
+            assertThat(gate.candidateGroups()).isEqualTo(StaticSetStrategy.of(HumanOversight.GENERAL));
         }
 
         @Test
@@ -231,7 +229,7 @@ class DevtownActionRiskClassifierTest {
             assertThat(result).isInstanceOf(RiskDecision.GateRequired.class);
             var gate = (RiskDecision.GateRequired) result;
             assertThat(gate.reversible()).isFalse();
-            assertThat(gate.candidateGroups()).contains(HumanOversight.ROUTING_REVIEW);
+            assertThat(gate.candidateGroups()).isEqualTo(StaticSetStrategy.of(HumanOversight.ROUTING_REVIEW));
         }
     }
 
@@ -246,7 +244,7 @@ class DevtownActionRiskClassifierTest {
             assertThat(result).isInstanceOf(RiskDecision.GateRequired.class);
             var gate = (RiskDecision.GateRequired) result;
             assertThat(gate.reversible()).isTrue();
-            assertThat(gate.candidateGroups()).contains(HumanDecision.PR_APPROVAL);
+            assertThat(gate.candidateGroups()).isEqualTo(StaticSetStrategy.of(HumanDecision.PR_APPROVAL));
         }
 
         @Test
@@ -283,7 +281,7 @@ class DevtownActionRiskClassifierTest {
             assertThat(result).isInstanceOf(RiskDecision.GateRequired.class);
             var gate = (RiskDecision.GateRequired) result;
             assertThat(gate.reversible()).isTrue();
-            assertThat(gate.candidateGroups()).contains(HumanOversight.GENERAL);
+            assertThat(gate.candidateGroups()).isEqualTo(StaticSetStrategy.of(HumanOversight.GENERAL));
             assertThat(gate.scope()).isEqualTo("unknown-action-type");
         }
     }

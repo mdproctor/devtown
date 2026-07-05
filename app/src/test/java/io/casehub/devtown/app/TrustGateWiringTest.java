@@ -1,7 +1,7 @@
 package io.casehub.devtown.app;
 
 import io.casehub.devtown.app.routing.DevtownObligorTrustPolicy;
-import io.casehub.ledger.api.model.ActorTrustScore.ScoreType;
+import io.casehub.ledger.api.model.ScoreType;
 import io.casehub.ledger.runtime.repository.ActorTrustScoreRepository;
 import io.casehub.ledger.runtime.service.TrustGateService;
 import io.casehub.platform.api.identity.ActorType;

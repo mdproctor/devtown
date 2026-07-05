@@ -64,7 +64,7 @@ class ReviewOutcomeObserverTest {
         // Wait for context to be updated
         await().atMost(3, SECONDS).pollInterval(50, MILLISECONDS).untilAsserted(() -> {
             var instance = caseInstanceRepository.findByUuid(caseId)
-                    .await().atMost(Duration.ofSeconds(2));
+                    ;
             assertThat(instance.getCaseContext().getPathAsString("styleCheck.outcome"))
                     .isEqualTo("APPROVED");
         });
@@ -110,9 +110,9 @@ class ReviewOutcomeObserverTest {
         planItemCompletedEvents.fireAsync(
                 new PlanItemCompletedEvent(caseId, "run-ci", "ci-runner", "test-tenant"));
 
-        // "merge" is another infrastructure binding
+        // "merge-direct" is an infrastructure binding (renamed from "merge" when enqueue-for-merge was added)
         planItemCompletedEvents.fireAsync(
-                new PlanItemCompletedEvent(caseId, "merge", "merge-bot", "test-tenant"));
+                new PlanItemCompletedEvent(caseId, "merge-direct", "merge-bot", "test-tenant"));
 
         // Give enough time for any event to propagate
         Thread.sleep(500);
@@ -130,7 +130,7 @@ class ReviewOutcomeObserverTest {
         caseHub.signal(caseId, "testCoverage", Map.of("outcome", "APPROVED"));
         await().atMost(3, SECONDS).pollInterval(50, MILLISECONDS).untilAsserted(() -> {
             var instance = caseInstanceRepository.findByUuid(caseId)
-                    .await().atMost(Duration.ofSeconds(2));
+                    ;
             assertThat(instance.getCaseContext().getPathAsString("testCoverage.outcome"))
                     .isEqualTo("APPROVED");
         });
@@ -154,7 +154,7 @@ class ReviewOutcomeObserverTest {
         caseHub.signal(caseId, "humanApproval", Map.of("status", "approved"));
         await().atMost(3, SECONDS).pollInterval(50, MILLISECONDS).untilAsserted(() -> {
             var instance = caseInstanceRepository.findByUuid(caseId)
-                    .await().atMost(Duration.ofSeconds(2));
+                    ;
             assertThat(instance.getCaseContext().getPathAsString("humanApproval.status"))
                     .isEqualTo("approved");
         });

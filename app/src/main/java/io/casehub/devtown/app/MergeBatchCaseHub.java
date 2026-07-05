@@ -6,7 +6,6 @@ import io.casehub.devtown.queue.BisectionSplitStrategy;
 import io.casehub.devtown.queue.SplitResult;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerResult;
-import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
@@ -23,25 +22,17 @@ public class MergeBatchCaseHub extends YamlCaseHub {
         super("devtown/merge-batch.yaml");
     }
 
-    @PostConstruct
-    void registerWorkers() {
-        CaseDefinition def = super.getDefinition();
-
-        var splitterCap = def.getCapabilities().stream()
-            .filter(c -> "bisection-splitter".equals(c.name()))
-            .findFirst().orElseThrow();
-        def.getWorkers().add(Worker.builder()
+    @Override
+    protected void augment(CaseDefinition definition) {
+        definition.getWorkers().add(Worker.builder()
             .name("bisection-splitter")
-            .capabilities(splitterCap)
+            .capabilityName("bisection-splitter")
             .function(this::adaptBisectionSplit)
             .build());
 
-        var rejectCap = def.getCapabilities().stream()
-            .filter(c -> "pr-reject-and-notify".equals(c.name()))
-            .findFirst().orElseThrow();
-        def.getWorkers().add(Worker.builder()
+        definition.getWorkers().add(Worker.builder()
             .name("pr-reject-and-notify")
-            .capabilities(rejectCap)
+            .capabilityName("pr-reject-and-notify")
             .function(this::adaptRejectAndNotify)
             .build());
     }

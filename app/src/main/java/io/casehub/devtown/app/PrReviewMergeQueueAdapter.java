@@ -42,7 +42,7 @@ public class PrReviewMergeQueueAdapter {
 
         def.getWorkers().add(Worker.builder()
             .name("merge-queue-enqueue")
-            .capabilities(enqueueCapability)
+            .capabilityName(enqueueCapability.name())
             .function(this::enqueue)
             .build());
     }
@@ -68,10 +68,9 @@ public class PrReviewMergeQueueAdapter {
             Set.of()  // dependsOn — empty (dependency extraction is devtown#101)
         );
 
-        mergeQueueService.enqueue(queuedPr);
-
+        boolean inserted = mergeQueueService.enqueue(queuedPr);
         return WorkerResult.of(Map.of(
-            "status", "enqueued",
+            "status", inserted ? "enqueued" : "already-queued",
             "prNumber", prNumber,
             "repository", repository
         ));

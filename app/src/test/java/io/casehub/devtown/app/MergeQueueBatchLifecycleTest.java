@@ -66,7 +66,7 @@ class MergeQueueBatchLifecycleTest {
             .findFirst().orElseThrow();
         def.getWorkers().add(Worker.builder()
             .name("batch-ci-runner")
-            .capabilities(ciCap)
+            .capabilityName(ciCap.name())
             .function(input -> tipTestBehavior.get().apply(input))
             .build());
     }
@@ -89,7 +89,7 @@ class MergeQueueBatchLifecycleTest {
             .pollInterval(200, MILLISECONDS)
             .untilAsserted(() -> {
                 var instance = caseInstanceRepository.findByUuid(caseId)
-                    .await().atMost(Duration.ofSeconds(2));
+                    ;
                 assertThat(instance).isNotNull();
                 assertThat(instance.getCaseContext().getPath("tipTest.status"))
                     .as("tipTest.status should be 'passing' after batch-ci-runner worker")
@@ -104,7 +104,7 @@ class MergeQueueBatchLifecycleTest {
             .pollInterval(200, MILLISECONDS)
             .untilAsserted(() -> {
                 var instance = caseInstanceRepository.findByUuid(caseId)
-                    .await().atMost(Duration.ofSeconds(2));
+                    ;
                 assertThat(instance).isNotNull();
                 assertThat(instance.getState())
                     .as("Case should complete via batch-merged goal")
@@ -112,7 +112,7 @@ class MergeQueueBatchLifecycleTest {
             });
 
         var instance = caseInstanceRepository.findByUuid(caseId)
-            .await().atMost(Duration.ofSeconds(2));
+            ;
         assertThat(instance.getCaseContext().getPath("tipTest.status"))
             .isEqualTo("passing");
         assertThat(instance.getCaseContext().getPath("mergeResult.status"))
@@ -136,7 +136,7 @@ class MergeQueueBatchLifecycleTest {
             .pollInterval(200, MILLISECONDS)
             .untilAsserted(() -> {
                 var instance = caseInstanceRepository.findByUuid(caseId)
-                    .await().atMost(Duration.ofSeconds(2));
+                    ;
                 assertThat(instance).isNotNull();
                 assertThat(instance.getState())
                     .as("Case should complete via single-pr-rejected goal")
@@ -144,7 +144,7 @@ class MergeQueueBatchLifecycleTest {
             });
 
         var instance = caseInstanceRepository.findByUuid(caseId)
-            .await().atMost(Duration.ofSeconds(2));
+            ;
         assertThat(instance.getCaseContext().getPath("rejectedPrs"))
             .as("rejectedPrs should be populated")
             .isNotNull();

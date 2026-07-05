@@ -75,17 +75,28 @@ public class JpaMergeQueueStore implements MergeQueueStore {
 
     @Override
     @Transactional
-    public boolean dequeue(int prNumber, String repository) {
+    public void updateWorkItemId(int prNumber, String repository, UUID workItemId) {
+        QueuedPrEntity entity = em.find(QueuedPrEntity.class,
+            new QueuedPrEntity.QueuedPrId(prNumber, repository));
+        if (entity != null) {
+            entity.workItemId = workItemId;
+            em.merge(entity);
+        }
+    }
+
+    @Override
+    @Transactional
+    public Optional<QueueEntry> dequeue(int prNumber, String repository) {
         QueuedPrEntity entity = em.find(QueuedPrEntity.class,
             new QueuedPrEntity.QueuedPrId(prNumber, repository));
 
         if (entity == null || !"QUEUED".equals(entity.status)) {
-            return false;
+            return Optional.empty();
         }
 
         entity.status = QueueEntryStatus.DEQUEUED.name();
         em.merge(entity);
-        return true;
+        return Optional.of(toQueueEntry(entity));
     }
 
     @Override
@@ -239,6 +250,33 @@ public class JpaMergeQueueStore implements MergeQueueStore {
             "AND b.completedAt IS NOT NULL ORDER BY b.completedAt DESC",
             BatchEntity.class)
             .setParameter("repo", repository)
+            .setMaxResults(window)
+            .getResultList();
+
+        if (recent.isEmpty()) return 0.0;
+        long failed = recent.stream().filter(b -> Boolean.FALSE.equals(b.succeeded)).count();
+        return (double) failed / recent.size();
+    }
+
+    @Override
+    public List<BatchRecord> completedBatchesSince(Instant since) {
+        return em.createQuery(
+            "SELECT b FROM BatchEntity b WHERE b.completedAt IS NOT NULL " +
+            "AND b.completedAt >= :since ORDER BY b.completedAt DESC",
+            BatchEntity.class)
+            .setParameter("since", since)
+            .getResultList()
+            .stream()
+            .map(this::toBatchRecord)
+            .toList();
+    }
+
+    @Override
+    public double recentBatchFailureRate(int window) {
+        List<BatchEntity> recent = em.createQuery(
+            "SELECT b FROM BatchEntity b WHERE b.completedAt IS NOT NULL " +
+            "ORDER BY b.completedAt DESC",
+            BatchEntity.class)
             .setMaxResults(window)
             .getResultList();
 

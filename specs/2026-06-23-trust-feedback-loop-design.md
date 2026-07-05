@@ -178,7 +178,7 @@ Already implemented in devtown#57. Included for reference:
 
 - **TrustGatedAttestationPolicy** — blocked on CommitmentContext capabilityTag enrichment (qhorus issue). Deferred.
 - **Evidential verification integration** — EvidentialChecker exists; integration deferred until TrustGatedAttestationPolicy is implemented.
-- **UI/dashboard** — brainstorm-first, casehub-pages TBD.
+- **UI** — brainstorm-first, casehub-pages TBD.
 - **Qhorus trust gate configuration** (devtown#58) — existing tracked issue.
 
 ---

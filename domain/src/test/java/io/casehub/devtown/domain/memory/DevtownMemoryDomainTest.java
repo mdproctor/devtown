@@ -1,6 +1,6 @@
 package io.casehub.devtown.domain.memory;
 
-import io.casehub.platform.api.memory.MemoryDomain;
+import io.casehub.neocortex.memory.MemoryDomain;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;

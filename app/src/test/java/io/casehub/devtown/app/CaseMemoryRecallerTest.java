@@ -6,9 +6,9 @@ import io.casehub.devtown.domain.memory.ReviewOutcome;
 import io.casehub.devtown.review.MemoryContext;
 import io.casehub.devtown.review.PrPayload;
 import io.casehub.platform.api.identity.TenancyConstants;
-import io.casehub.platform.api.memory.CaseMemoryStore;
-import io.casehub.platform.api.memory.MemoryAttributeKeys;
-import io.casehub.platform.api.memory.MemoryInput;
+import io.casehub.neocortex.memory.CaseMemoryStore;
+import io.casehub.neocortex.memory.MemoryAttributeKeys;
+import io.casehub.neocortex.memory.MemoryInput;
 import io.casehub.platform.testing.FixedCurrentPrincipal;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.inject.Instance;
@@ -203,7 +203,7 @@ class CaseMemoryRecallerTest {
         ));
 
         // Query it back immediately
-        var query = io.casehub.platform.api.memory.MemoryQuery.forEntity(
+        var query = io.casehub.neocortex.memory.MemoryQuery.forEntity(
             "module:repo1/testmod",
             DevtownMemoryDomain.SOFTWARE_REVIEW,
             tenantId

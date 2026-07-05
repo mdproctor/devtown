@@ -1,6 +1,6 @@
 package io.casehub.devtown.domain.memory;
 
-import io.casehub.platform.api.memory.MemoryDomain;
+import io.casehub.neocortex.memory.MemoryDomain;
 
 public final class DevtownMemoryDomain {
     public static final MemoryDomain SOFTWARE_REVIEW = new MemoryDomain("software-review");
