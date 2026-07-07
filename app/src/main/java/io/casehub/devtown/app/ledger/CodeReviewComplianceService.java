@@ -65,7 +65,16 @@ public class CodeReviewComplianceService {
      */
     @Transactional
     public Optional<CodeReviewComplianceEvidence> findEvidence(UUID caseId, String tenancyId) {
-        List<LedgerEntry> entries = ledgerRepo.findBySubjectId(caseId, tenancyId);
+        List<LedgerEntry> entries = new java.util.ArrayList<>(ledgerRepo.findBySubjectId(caseId, tenancyId));
+        // MergeDecisionLedgerEntry extends @MappedSuperclass LedgerEntry (not JpaLedgerEntry
+        // JOINED), so it's not included in ledgerRepo.findBySubjectId(). Query it directly.
+        List<MergeDecisionLedgerEntry> mergeDecisions = em.createQuery(
+                "SELECT m FROM MergeDecisionLedgerEntry m WHERE m.subjectId = :subjectId AND m.tenancyId = :tenancyId",
+                MergeDecisionLedgerEntry.class)
+                .setParameter("subjectId", caseId)
+                .setParameter("tenancyId", tenancyId)
+                .getResultList();
+        entries.addAll(mergeDecisions);
         if (entries.isEmpty()) {
             return Optional.empty();
         }

@@ -440,16 +440,16 @@ public class GovernanceQueryService {
     public List<TriageItem> triageItems() {
         if (workItemStore == null) return List.of();
         var humanDecisions = workItemStore.scan(
-            WorkItemQuery.builder().status(WorkItemStatus.PENDING).category("human-decision").build());
+            WorkItemQuery.builder().status(WorkItemStatus.PENDING).type("human-decision").build());
         var humanOversight = workItemStore.scan(
-            WorkItemQuery.builder().status(WorkItemStatus.PENDING).category("human-oversight").build());
+            WorkItemQuery.builder().status(WorkItemStatus.PENDING).type("human-oversight").build());
 
         var all = new ArrayList<WorkItem>();
         all.addAll(humanDecisions);
         all.addAll(humanOversight);
 
         return all.stream().map(wi -> new TriageItem(
-            wi.id, "", wi.category, wi.candidateGroups,
+            wi.id, "", firstTypePath(wi), wi.candidateGroups,
             wi.expiresAt, "", wi.createdAt, wi.parentId
         )).sorted(Comparator.comparing(t -> t.expiresAt() != null ? t.expiresAt() : Instant.MAX))
         .toList();
@@ -465,5 +465,10 @@ public class GovernanceQueryService {
 
     public ReviewDetail reviewDetail(UUID caseId) {
         return reviewDetail(caseId, "default");
+    }
+
+    private static String firstTypePath(WorkItem wi) {
+        if (wi.types == null || wi.types.isEmpty()) return "";
+        return wi.types.iterator().next().path;
     }
 }

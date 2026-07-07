@@ -12,10 +12,10 @@ import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.ledger.api.model.supplement.ComplianceSupplement;
 import io.casehub.ledger.api.spi.LedgerEntryRepository;
 import io.casehub.platform.api.identity.ActorType;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import org.jboss.logging.Logger;
 
 import java.time.Instant;
@@ -66,7 +66,6 @@ public class MergeDecisionObserver {
     @Inject LedgerConfig ledgerConfig;
     @Inject ObjectMapper objectMapper;
 
-    @Transactional
     void onCaseLifecycle(@ObservesAsync CaseLifecycleEvent event) {
         if (!ledgerConfig.enabled()) return;
 
@@ -93,14 +92,18 @@ public class MergeDecisionObserver {
         String prRepo = ctx.getPathAsString("pr.repo");
         String batchIdStr = ctx.getPathAsString("batch.id");
 
-        if (prRepo != null) {
-            // PR review path
-            handlePrReviewPath(event, ctx, decision);
-        } else if (batchIdStr != null) {
-            // Merge batch path
-            handleMergeBatchPath(event, ctx, decision);
+        try {
+            QuarkusTransaction.requiringNew().run(() -> {
+                if (prRepo != null) {
+                    handlePrReviewPath(event, ctx, decision);
+                } else if (batchIdStr != null) {
+                    handleMergeBatchPath(event, ctx, decision);
+                }
+            });
+        } catch (Exception e) {
+            LOG.errorf(e, "Failed to write merge decision for caseId=%s decision=%s",
+                    event.caseId(), decision);
         }
-        // Else: neither path applies, skip
     }
 
     private void handlePrReviewPath(CaseLifecycleEvent event, CaseContext ctx, String decision) {

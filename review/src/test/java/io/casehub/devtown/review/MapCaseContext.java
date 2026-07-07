@@ -214,7 +214,7 @@ class MapCaseContext implements CaseContext {
   }
 
   @Override
-  public io.casehub.api.context.ReadablePanel panel(String panelName) {
+  public io.casehub.api.context.ReadableLayer layer(String name) {
     throw new UnsupportedOperationException();
   }
 

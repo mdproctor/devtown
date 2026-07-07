@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.converter.CaseDefinitionYamlMapper;
+import io.casehub.api.spi.routing.CandidateSetSpec;
+import io.casehub.api.spi.routing.StaticSetStrategy;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
@@ -54,8 +56,8 @@ class PrReviewCaseDefinitionEquivalenceTest {
                     && dslBinding.target() instanceof HumanTaskTarget dslHT) {
                 assertThat(dslHT.title()).isEqualTo(yamlHT.title());
                 assertThat(dslHT.expiresIn()).isEqualTo(yamlHT.expiresIn());
-                assertThat(dslHT.candidateGroups().toString())
-                    .isEqualTo(yamlHT.candidateGroups().toString());
+                assertThat(staticValues(dslHT.candidateGroups()))
+                    .isEqualTo(staticValues(yamlHT.candidateGroups()));
                 assertThat(dslHT.outputMapping().toString())
                     .isEqualTo(yamlHT.outputMapping().toString());
             }
@@ -64,5 +66,13 @@ class PrReviewCaseDefinitionEquivalenceTest {
         assertThat(fromDsl.getCompletion()).isNotNull();
         assertThat(fromDsl.getCompletion().getClass())
             .isEqualTo(fromYaml.getCompletion().getClass());
+    }
+
+    private static java.util.Set<String> staticValues(CandidateSetSpec spec) {
+        if (spec instanceof CandidateSetSpec.Inline inline
+                && inline.strategy() instanceof StaticSetStrategy s) {
+            return s.values();
+        }
+        throw new AssertionError("expected Inline with StaticSetStrategy, got " + spec);
     }
 }

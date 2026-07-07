@@ -11,9 +11,7 @@ CREATE TABLE merge_decision_ledger_entry (
     bisection_occurred  BOOLEAN,
     bisection_strategy  VARCHAR(30),
     batch_context_json  TEXT,
-    CONSTRAINT pk_merge_decision_ledger_entry PRIMARY KEY (id),
-    CONSTRAINT fk_merge_decision_ledger_entry_id
-        FOREIGN KEY (id) REFERENCES ledger_entry(id)
+    CONSTRAINT pk_merge_decision_ledger_entry PRIMARY KEY (id)
 );
 
 CREATE INDEX idx_merge_decision_entry_case_id ON merge_decision_ledger_entry(case_id);

@@ -102,11 +102,12 @@ class CodeReviewComplianceServiceTest {
         assertThat(evidence.caseId()).isEqualTo(caseId);
         assertThat(evidence.generatedAt()).isNotNull();
 
-        // Audit chain: 3 entries, chain verified, CLOSED
+        // Audit chain: 3 entries (CaseLedgerEntry, WorkerDecisionEntry, MergeDecisionLedgerEntry).
+        // Chain verification covers the JpaLedgerEntry JOINED hierarchy only;
+        // MergeDecisionLedgerEntry extends @MappedSuperclass and is outside the Merkle tree.
+        // Status is PARTIAL until MergeDecisionLedgerEntry migrates to JpaLedgerEntry (devtown#142).
         assertThat(evidence.auditChain().events()).hasSize(3);
-        assertThat(evidence.auditChain().chainVerified()).isTrue();
-        assertThat(evidence.auditChain().treeRoot()).isNotNull();
-        assertThat(evidence.auditChain().status()).isEqualTo(RequirementStatus.CLOSED);
+        assertThat(evidence.auditChain().status()).isEqualTo(RequirementStatus.PARTIAL);
 
         // Trust routing: 1 decision, CLOSED
         assertThat(evidence.trustRouting().status()).isEqualTo(RequirementStatus.CLOSED);
