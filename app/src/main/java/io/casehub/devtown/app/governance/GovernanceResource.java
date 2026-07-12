@@ -4,8 +4,14 @@ import io.casehub.devtown.app.mcp.TrackedEvent;
 import io.casehub.devtown.domain.DevtownRoles;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.*;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -47,15 +53,19 @@ public class GovernanceResource {
 
     @GET
     @Path("/problems")
-    public List<GovernanceQueryService.Problem> problems(
-            @QueryParam("threshold_minutes") @DefaultValue("60") int thresholdMinutes) {
-        return queryService.problems(thresholdMinutes);
+    public PagedResult<GovernanceQueryService.Problem> problems(
+            @QueryParam("threshold_minutes") @DefaultValue("60") int thresholdMinutes,
+            @QueryParam("cursor") String cursor,
+            @QueryParam("limit") @DefaultValue("50") int limit) {
+        return PagedResult.paginate(queryService.problems(thresholdMinutes), cursor, limit);
     }
 
     @GET
     @Path("/reviews")
-    public List<GovernanceQueryService.ReviewListEntry> reviewsList() {
-        return queryService.reviewsList();
+    public PagedResult<GovernanceQueryService.ReviewListEntry> reviewsList(
+            @QueryParam("cursor") String cursor,
+            @QueryParam("limit") @DefaultValue("50") int limit) {
+        return PagedResult.paginate(queryService.reviewsList(), cursor, limit);
     }
 
     @GET
@@ -66,8 +76,10 @@ public class GovernanceResource {
 
     @GET
     @Path("/reviewers")
-    public List<GovernanceQueryService.ReviewerFleetEntry> reviewerFleet() {
-        return queryService.reviewerFleet();
+    public PagedResult<GovernanceQueryService.ReviewerFleetEntry> reviewerFleet(
+            @QueryParam("cursor") String cursor,
+            @QueryParam("limit") @DefaultValue("50") int limit) {
+        return PagedResult.paginate(queryService.reviewerFleet(), cursor, limit);
     }
 
     @GET
@@ -96,7 +108,9 @@ public class GovernanceResource {
 
     @GET
     @Path("/triage")
-    public List<GovernanceQueryService.TriageItem> triageItems() {
-        return queryService.triageItems();
+    public PagedResult<GovernanceQueryService.TriageItem> triageItems(
+            @QueryParam("cursor") String cursor,
+            @QueryParam("limit") @DefaultValue("50") int limit) {
+        return PagedResult.paginate(queryService.triageItems(), cursor, limit);
     }
 }

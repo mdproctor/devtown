@@ -6,10 +6,14 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.time.Instant;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for GovernanceResource.
@@ -84,13 +88,13 @@ class GovernanceResourceTest {
     @Test
     void problems_delegatesToService() {
         var expected = List.of(
-            new GovernanceQueryService.Problem("stalled_case", "warning", "PR stalled", UUID.randomUUID(), null, Instant.now())
-        );
+                new GovernanceQueryService.Problem("stalled_case", "warning", "PR stalled", UUID.randomUUID(), null, Instant.now())
+                              );
         when(mockService.problems(60)).thenReturn(expected);
 
-        var result = resource.problems(60);
+        var result = resource.problems(60, null, 50);
 
-        assertSame(expected, result);
+        assertThat(result.items()).isEqualTo(expected);
         verify(mockService).problems(60);
     }
 
@@ -98,13 +102,13 @@ class GovernanceResourceTest {
     void reviewsList_delegatesToService() {
         var now = Instant.now();
         var expected = List.of(
-            new GovernanceQueryService.ReviewListEntry(UUID.randomUUID(), "repo", 1, "contributor", "ACTIVE", now, now)
-        );
+                new GovernanceQueryService.ReviewListEntry(UUID.randomUUID(), "repo", 1, "contributor", "ACTIVE", now, now)
+                              );
         when(mockService.reviewsList()).thenReturn(expected);
 
-        var result = resource.reviewsList();
+        var result = resource.reviewsList(null, 50);
 
-        assertSame(expected, result);
+        assertThat(result.items()).isEqualTo(expected);
         verify(mockService).reviewsList();
     }
 
@@ -123,13 +127,13 @@ class GovernanceResourceTest {
     @Test
     void reviewerFleet_delegatesToService() {
         var expected = List.of(
-            new GovernanceQueryService.ReviewerFleetEntry("actor-1", Map.of("code-analysis", 0.7), "active", 2, 10)
-        );
+                new GovernanceQueryService.ReviewerFleetEntry("actor-1", Map.of("code-analysis", 0.7), "active", 2, 10)
+                              );
         when(mockService.reviewerFleet()).thenReturn(expected);
 
-        var result = resource.reviewerFleet();
+        var result = resource.reviewerFleet(null, 50);
 
-        assertSame(expected, result);
+        assertThat(result.items()).isEqualTo(expected);
         verify(mockService).reviewerFleet();
     }
 
@@ -181,13 +185,13 @@ class GovernanceResourceTest {
     @Test
     void triageItems_delegatesToService() {
         var expected = List.of(
-            new GovernanceQueryService.TriageItem(UUID.randomUUID(), "repo#1", "pr-approval", "humans", Instant.now(), "L1", Instant.now(), UUID.randomUUID())
-        );
+                new GovernanceQueryService.TriageItem(UUID.randomUUID(), "repo#1", "pr-approval", "humans", Instant.now(), "L1", Instant.now(), UUID.randomUUID())
+                              );
         when(mockService.triageItems()).thenReturn(expected);
 
-        var result = resource.triageItems();
+        var result = resource.triageItems(null, 50);
 
-        assertSame(expected, result);
+        assertThat(result.items()).isEqualTo(expected);
         verify(mockService).triageItems();
     }
 }
