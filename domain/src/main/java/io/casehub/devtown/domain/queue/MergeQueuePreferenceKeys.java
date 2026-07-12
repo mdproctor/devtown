@@ -42,6 +42,10 @@ public final class MergeQueuePreferenceKeys {
     public static final PreferenceKey<BooleanPreference> DEQUEUE_ON_UNLABEL =
         new PreferenceKey<>("devtown.merge-queue", "dequeue-on-unlabel",
             BooleanPreference.of(false), BooleanPreference::parse);
+    public static final PreferenceKey<IntPreference>     BATCH_RETENTION_DAYS =
+            new PreferenceKey<>("devtown.merge-queue", "batch-retention-days",
+                                IntPreference.of(30), IntPreference::parse);
+
 
     public static final PreferenceKey<StringPreference> SLA_CRITICAL =
         new PreferenceKey<>("devtown.merge-queue.sla", "CRITICAL",

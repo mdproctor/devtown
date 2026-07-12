@@ -177,4 +177,12 @@ public interface MergeQueueStore {
      * @return failure rate [0.0, 1.0]; 0.0 if no completed batches exist
      */
     double recentBatchFailureRate(int window);
+
+    /**
+     * Deletes completed batch records older than the given cutoff.
+     *
+     * @return number of records expunged
+     */
+    int expungeCompletedBefore(Instant cutoff);
+
 }

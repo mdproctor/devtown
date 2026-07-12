@@ -11,8 +11,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
-import jakarta.persistence.Query;
 import jakarta.transaction.Transactional;
+
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -284,6 +284,15 @@ public class JpaMergeQueueStore implements MergeQueueStore {
         long failed = recent.stream().filter(b -> Boolean.FALSE.equals(b.succeeded)).count();
         return (double) failed / recent.size();
     }
+
+    @Override
+    @Transactional
+    public int expungeCompletedBefore(Instant cutoff) {
+        return em.createQuery("DELETE FROM BatchEntity b WHERE b.completedAt IS NOT NULL AND b.completedAt < :cutoff")
+                 .setParameter("cutoff", cutoff)
+                 .executeUpdate();
+    }
+
 
     // ── Converters ─────────────────────────────────────────────────────────
 
