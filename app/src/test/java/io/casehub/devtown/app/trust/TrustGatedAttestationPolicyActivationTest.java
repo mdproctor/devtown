@@ -41,8 +41,10 @@ class TrustGatedAttestationPolicyActivationTest {
     @Inject io.casehub.ledger.runtime.service.TrustScoreJob trustScoreJob;
 
     @Test
-    void policyIsTrustGated() {
-        assertThat(attestationPolicy).isInstanceOf(TrustGatedAttestationPolicy.class);
+    void policyIsEvidentialWrappingTrustGated() {
+        assertThat(attestationPolicy).isInstanceOf(EvidentialAttestationPolicy.class);
+        EvidentialAttestationPolicy evidential = (EvidentialAttestationPolicy) attestationPolicy;
+        assertThat(evidential.delegate()).isInstanceOf(TrustGatedAttestationPolicy.class);
     }
 
     @Test
@@ -59,7 +61,7 @@ class TrustGatedAttestationPolicyActivationTest {
         // Both agents send DONE for security-review
         var context = new CommitmentContext(
                 UUID.randomUUID().toString(), UUID.randomUUID(), "test-channel",
-                UUID.randomUUID(), SECURITY_REVIEW);
+                UUID.randomUUID(), SECURITY_REVIEW, null, null, null);
 
         Optional<CommitmentAttestationPolicy.AttestationOutcome> highTrustResult =
                 attestationPolicy.attestationFor(MessageType.DONE, HIGH_TRUST_AGENT, context);
@@ -82,7 +84,7 @@ class TrustGatedAttestationPolicyActivationTest {
     void failureIsFlaggedRegardlessOfTrust() {
         var context = new CommitmentContext(
                 UUID.randomUUID().toString(), UUID.randomUUID(), "test-channel",
-                UUID.randomUUID(), SECURITY_REVIEW);
+                UUID.randomUUID(), SECURITY_REVIEW, null, null, null);
 
         Optional<CommitmentAttestationPolicy.AttestationOutcome> result =
                 attestationPolicy.attestationFor(MessageType.FAILURE, HIGH_TRUST_AGENT, context);
@@ -108,7 +110,7 @@ class TrustGatedAttestationPolicyActivationTest {
     void nonDischargeTypeReturnsEmpty() {
         var context = new CommitmentContext(
                 UUID.randomUUID().toString(), UUID.randomUUID(), "test-channel",
-                UUID.randomUUID(), SECURITY_REVIEW);
+                UUID.randomUUID(), SECURITY_REVIEW, null, null, null);
 
         Optional<CommitmentAttestationPolicy.AttestationOutcome> result =
                 attestationPolicy.attestationFor(MessageType.QUERY, HIGH_TRUST_AGENT, context);

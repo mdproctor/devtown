@@ -9,8 +9,9 @@ import io.casehub.workadapter.PlanItemCallerRef;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import java.util.Map;
 import org.jboss.logging.Logger;
+
+import java.util.Map;
 
 @ApplicationScoped
 public class SlaBreachHandler {
@@ -27,7 +28,7 @@ public class SlaBreachHandler {
 
             switch (event.decision()) {
                 case BreachDecision.Fail fail -> {
-                    String contextKey = resolveContextKey(ref);
+                    String contextKey = resolveContextKey(ref, event.tenancyId());
                     if (contextKey == null) {
                         LOG.warnf("Cannot resolve context key for callerRef=%s — signaling skipped",
                                 event.context().task().callerRef());
@@ -43,10 +44,10 @@ public class SlaBreachHandler {
         }
     }
 
-    private String resolveContextKey(CallerRef ref) {
-        if (!(ref instanceof PlanItemCallerRef pi)) return null;
+    private String resolveContextKey(CallerRef ref, String tenancyId) {
+        if (!(ref instanceof PlanItemCallerRef pi)) {return null;}
 
-        var records = planItemStore.findDelegated(pi.caseId());
+        var records = planItemStore.findDelegated(pi.caseId(), tenancyId);
         for (var record : records) {
             if (pi.planItemId().equals(record.planItemId()) && record.outputMappingExpression() != null) {
                 return OutputMappingKeys.topLevelKey(record.outputMappingExpression());

@@ -1,13 +1,16 @@
 package io.casehub.devtown.app.routing;
 
+import io.casehub.api.spi.routing.TrustPhase;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
+import io.casehub.devtown.domain.AgentQualification;
 import io.casehub.devtown.domain.DevtownCapabilityRegistry;
 import io.casehub.devtown.domain.ReviewDomain;
-import io.casehub.devtown.domain.AgentQualification;
 import io.casehub.platform.api.preferences.MapPreferences;
 import io.casehub.platform.api.preferences.PreferenceProvider;
 import org.junit.jupiter.api.Test;
+
 import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class DevtownTrustRoutingPolicyProviderTest {
@@ -124,6 +127,46 @@ class DevtownTrustRoutingPolicyProviderTest {
         TrustRoutingPolicy policy = provider.forCapability("unknown-capability");
         assertThat(policy.bootstrapEscalationRequired()).isFalse();
     }
+
+    @Test
+    void securityReviewHasEvidentialCheckPhases() {
+        var                provider = new DevtownTrustRoutingPolicyProvider(EMPTY, registry);
+        TrustRoutingPolicy policy   = provider.forCapability(ReviewDomain.SECURITY_REVIEW);
+        assertThat(policy.evidentialCheckPhases()).containsExactlyInAnyOrder(
+                TrustPhase.BELOW_THRESHOLD, TrustPhase.QUALITY_FAILED, TrustPhase.BOOTSTRAP);
+    }
+
+    @Test
+    void architectureReviewHasEvidentialCheckPhases() {
+        var                provider = new DevtownTrustRoutingPolicyProvider(EMPTY, registry);
+        TrustRoutingPolicy policy   = provider.forCapability(ReviewDomain.ARCHITECTURE_REVIEW);
+        assertThat(policy.evidentialCheckPhases()).containsExactlyInAnyOrder(
+                TrustPhase.BELOW_THRESHOLD, TrustPhase.QUALITY_FAILED);
+    }
+
+    @Test
+    void styleReviewHasNoEvidentialCheckPhases() {
+        var                provider = new DevtownTrustRoutingPolicyProvider(EMPTY, registry);
+        TrustRoutingPolicy policy   = provider.forCapability(ReviewDomain.STYLE_REVIEW);
+        assertThat(policy.evidentialCheckPhases()).isEmpty();
+    }
+
+    @Test
+    void mergeExecutorHasFullEvidentialCheckPhases() {
+        var                provider = new DevtownTrustRoutingPolicyProvider(EMPTY, registry);
+        TrustRoutingPolicy policy   = provider.forCapability(AgentQualification.MERGE_EXECUTOR);
+        assertThat(policy.evidentialCheckPhases()).containsExactlyInAnyOrder(
+                TrustPhase.BELOW_THRESHOLD, TrustPhase.QUALITY_FAILED,
+                TrustPhase.BOOTSTRAP, TrustPhase.BORDERLINE);
+    }
+
+    @Test
+    void unknownCapabilityHasNoEvidentialCheckPhases() {
+        var                provider = new DevtownTrustRoutingPolicyProvider(EMPTY, registry);
+        TrustRoutingPolicy policy   = provider.forCapability("unknown-capability");
+        assertThat(policy.evidentialCheckPhases()).isEmpty();
+    }
+
 
     // === Resolution: all capabilities resolve without exception ===
 

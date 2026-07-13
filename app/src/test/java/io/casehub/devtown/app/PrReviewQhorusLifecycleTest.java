@@ -394,7 +394,7 @@ class PrReviewQhorusLifecycleTest {
 
     @Test
     void existingPermissiveWorkChannel_throwsOnAllowedWritersMismatch() {
-        channelService.create(new io.casehub.qhorus.api.channel.ChannelCreateRequest("pr-review-249/work", null, ChannelSemantic.APPEND, null, null, null, null, null, QhorusPrReviewService.WORK_ALLOWED_TYPES, null, null, null, null, null));
+        channelService.create(new io.casehub.qhorus.api.channel.ChannelCreateRequest("pr-review-249/work", null, ChannelSemantic.APPEND, null, null, null, null, null, QhorusPrReviewService.WORK_ALLOWED_TYPES, null, null, null, null, null, null));
 
         assertThatThrownBy(() ->
                 service.startReview(new PrPayload("casehubio/devtown", 249, "sha249", "main", 100, "test-contributor", List.of())))

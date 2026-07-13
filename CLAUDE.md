@@ -20,10 +20,12 @@ Run `add-dir /Users/mdproctor/claude/casehub/devtown` before any other work.
 | java-update-design / update-primary-doc | `design/JOURNAL.md` (created by `epic`) |
 | adr | `adr/` |
 | write-blog | `blog/` |
+| roadmap | `ROADMAP.md` |
 
 ## Structure
 
 - `HANDOFF.md` — session handover (single file, overwritten each session)
+- `ROADMAP.md` — cross-repo phased delivery plan with foundation priority signals
 - `IDEAS.md` — idea log (single file)
 - `specs/` — brainstorming / design specs (superpowers output)
 - `plans/` — implementation plans (superpowers output)
@@ -392,6 +394,10 @@ After implementation: `implementation-doc-sync` (scoped doc sweep)
 
 Living docs — check for drift after significant changes:
 - `docs/adr/INDEX.md`
+
+## Writing Style Guide
+
+**The writing style guide at `~/claude-workspace/writing-styles/blog-technical.md` is mandatory for all blog and diary entries.** Load it in full before drafting. Complete the pre-draft voice classification (I / we / Claude-named) before generating any prose. Do not show a draft without verifying it against the style guide.
 
 ## Work Tracking
 

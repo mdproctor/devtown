@@ -154,21 +154,21 @@ public class QhorusPrReviewService implements PrReviewApplicationService {
         final String name = prefix + "/work";
         return channelService.findByName(name)
                 .map(ch -> requireContract(ch, WORK_ALLOWED_TYPES, ORCHESTRATOR))
-                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, List.of(ORCHESTRATOR), List.of(ORCHESTRATOR), null, null, null, WORK_ALLOWED_TYPES, null, null, null, null, null)));
+                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, List.of(ORCHESTRATOR), List.of(ORCHESTRATOR), null, null, null, WORK_ALLOWED_TYPES, null, null, null, null, null, null)));
     }
 
     private Channel findOrCreateObserveChannel(final String prefix) {
         final String name = prefix + "/observe";
         return channelService.findByName(name)
                 .map(ch -> requireContract(ch, OBSERVE_ALLOWED_TYPES, ORCHESTRATOR))
-                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, List.of(ORCHESTRATOR), List.of(ORCHESTRATOR), null, null, null, OBSERVE_ALLOWED_TYPES, null, null, null, null, null)));
+                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, List.of(ORCHESTRATOR), List.of(ORCHESTRATOR), null, null, null, OBSERVE_ALLOWED_TYPES, null, null, null, null, null, null)));
     }
 
     private Channel findOrCreateOversightChannel(final String prefix) {
         final String name = prefix + "/oversight";
         return channelService.findByName(name)
                 .map(ch -> requireContract(ch, OVERSIGHT_ALLOWED_TYPES, ORCHESTRATOR))
-                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, List.of(ORCHESTRATOR), List.of(ORCHESTRATOR), null, null, null, OVERSIGHT_ALLOWED_TYPES, null, null, null, null, null)));
+                .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, List.of(ORCHESTRATOR), List.of(ORCHESTRATOR), null, null, null, OVERSIGHT_ALLOWED_TYPES, null, null, null, null, null, null)));
     }
 
     private static Channel requireContract(final Channel ch, final Set<MessageType> expectedTypes,

@@ -6,6 +6,11 @@ import io.casehub.work.api.spi.SlaBreachPolicy;
 import java.time.Duration;
 
 public class DefaultSlaBreachPolicy implements SlaBreachPolicy {
+    @Override
+    public String id() {
+        return "devtown-default";
+    }
+
 
     @Override
     public BreachDecision onBreach(SlaBreachContext ctx) {

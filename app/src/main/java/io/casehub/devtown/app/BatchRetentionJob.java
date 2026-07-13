@@ -26,7 +26,7 @@ public class BatchRetentionJob {
     @Inject
     PreferenceProvider preferenceProvider;
 
-    @Scheduled(cron = "0 3 * * *", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
+    @Scheduled(cron = "0 0 3 * * ?", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void expungeCompletedBatches() {
         try {
             Preferences prefs = preferenceProvider.resolve(MERGE_QUEUE_SCOPE);

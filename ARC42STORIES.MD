@@ -518,7 +518,7 @@ C4Component
 **Issues:** casehubio/devtown#52 (Layer 3 — qhorus messaging)
 **Navigation:** `git log --grep="#52" --oneline`
 
-Layer 3 shipped. Typed `COMMAND` dispatched to each specialist agent; `DECLINE` is a formal scope boundary, not an error; commitment lifecycle (OPEN → ACKNOWLEDGED → FULFILLED/DECLINED/FAILED/EXPIRED) tracks each agent obligation. Full Chapter entry pending — content to be written from devtown#52 implementation.
+Layer 3 shipped. `QhorusPrReviewService` (`@Alternative @Priority(2)` in `app/`) displaces `PrReviewCaseService`, dispatching typed `COMMAND` messages to each specialist agent via qhorus channels. `DECLINE` is a formal scope boundary, not an error — agents that cannot handle a capability respond with DECLINE and the commitment lifecycle (OPEN → ACKNOWLEDGED → FULFILLED/DECLINED/FAILED/EXPIRED) tracks the obligation. `ReviewerOutcome` and `ReviewerAgent` port types define the agent contract. Each `MessageLedgerEntry` in the COMMAND→DONE chain provides the tamper-evident foundation that Layer 4 builds on.
 
 ---
 
@@ -531,7 +531,7 @@ Layer 3 shipped. Typed `COMMAND` dispatched to each specialist agent; `DECLINE` 
 **Issues:** casehubio/devtown#73 (Layer 4 — ledger audit), casehubio/devtown#7 (compliance report)
 **Blog:** `blog/2026-06-09-mdp01-the-hash-that-doesnt-hash.md`
 
-Layer 4 shipped. `MergeDecisionLedgerEntry` (JOINED, V2002) captures APPROVED/REJECTED terminal merge decisions. `MergeDecisionObserver` derives the decision from `CaseLifecycleEvent`. `CodeReviewComplianceResource` (`GET /api/compliance/code-review/{caseId}`) assembles evidence across audit chain, trust routing, SLA, and GDPR dimensions. Full Chapter entry pending — content to be written from devtown#73 and devtown#7 implementation.
+Layer 4 shipped. `MergeDecisionLedgerEntry` (JOINED, V2002) captures APPROVED/REJECTED terminal merge decisions with Merkle-hashed content — `domainContentBytes()` ensures subclass fields participate in the leaf hash (ledger#128). `MergeDecisionObserver` derives the decision from `CaseLifecycleEvent`. `CodeReviewComplianceResource` (`GET /api/compliance/code-review/{caseId}`) assembles evidence across four dimensions: audit chain integrity, trust routing rationale, SLA compliance, and GDPR status. `ErasureReceiptLedgerEntry` (JOINED, V2004) records Art.17 erasure events; `GdprErasureService` orchestrates actor identity pseudonymisation + CaseMemoryStore cleanup (devtown#74).
 
 ---
 
@@ -541,9 +541,7 @@ Layer 4 shipped. `MergeDecisionLedgerEntry` (JOINED, V2002) captures APPROVED/RE
 **Sequence:** 5 of 5
 **Status:** ✅ complete (Layer 6 shipped — devtown#57)
 
-Full Chapter entry pending — content to be written from devtown#57 (Layer 6 trust routing) implementation. Layer 6 wires `TrustWeightedAgentStrategy` from `casehub-engine-ledger` with `DevtownTrustRoutingPolicyProvider` supplying per-capability routing policies.
-
-Known scope: `TrustWeightedSelectionStrategy` replaces availability routing; post-merge outcome attestations feed trust model; routing quality improves automatically as attestations accumulate.
+`TrustWeightedAgentStrategy` (from `casehub-engine-ledger`) replaces availability routing with a four-phase trust maturity model. `DevtownTrustRoutingPolicyProvider` supplies per-capability thresholds, blend factors, quality floors, and borderline margins from `DevtownCapabilityRegistry` + YAML config. `TrustCandidateClassifier` classifies each agent candidate as BOOTSTRAP → QUALIFIED → BORDERLINE → EXCLUDED, with workload-weighted scoring for qualified agents. Post-merge outcome attestations (SOUND/FLAGGED) feed the trust model via `IncrementalTrustUpdateObserver`; routing quality improves automatically as attestations accumulate. `TrustGatedAttestationPolicy` (devtown#97, shipped) modulates attestation confidence based on per-capability trust scores — BELOW_THRESHOLD agents get SOUND at reduced confidence.
 
 ---
 
@@ -744,7 +742,7 @@ Alternative: embed `thenOnBreach` on `EscalateTo` and `Extend`. Chose separate `
 When the escalated `WorkItem` expires, `ExpiryLifecycleService` calls `onBreach()` again. The policy reads `ctx.task().candidateGroups()` to determine the current tier — no decision tree serialization, no state storage. If escalation group is already assigned → terminal failure; otherwise → escalate.
 
 **Scope resolution uses `WorkItem.scope` field (new V31 column), with `Path.root()` as null fallback.**
-`buildBreachContext()` calls `Path.root()` when `WorkItem.scope` is null. `Path.root()` was pending on platform; blocked `work#212` compilation until platform published it (now ✅ CLOSED).
+`buildBreachContext()` calls `Path.root()` when `WorkItem.scope` is null. `Path.root()` shipped in platform (platform#24 ✅, work#212 ✅).
 
 #### Gotchas
 
@@ -775,7 +773,7 @@ If any binding condition `context.x == null` evaluates to true on test start, `t
 **Completed:** ✅ (devtown#52 closed)
 **Issues:** casehubio/devtown#52
 
-Layer 3 shipped. Typed COMMAND dispatch to specialist agents; DECLINE as a formal scope boundary (not an error); commitment lifecycle (OPEN → ACKNOWLEDGED → FULFILLED/DECLINED/FAILED/EXPIRED); `MessageLedgerEntry` chain that enables C4's tamper-evident audit. Full Layer entry pending — content to be written from devtown#52 implementation.
+Layer 3 shipped. `QhorusPrReviewService` (`@Alternative @Priority(2)` in `app/`) dispatches typed COMMAND messages to specialist agents via qhorus channels. DECLINE is a formal scope boundary (not an error); commitment lifecycle (OPEN → ACKNOWLEDGED → FULFILLED/DECLINED/FAILED/EXPIRED) tracks each agent obligation. `MessageLedgerEntry` chain enables C4's tamper-evident audit. `ReviewerOutcome` captures structured agent responses; `ReviewerAgent` port type defines the agent contract for Layer 5's CasePlanModel bindings.
 
 ---
 
@@ -914,7 +912,9 @@ Layer 6 wires `TrustWeightedAgentStrategy` (from `casehub-engine-ledger`) replac
 
 **Scope reduction — everything but the test was already shipped.** The spec started as two-repo upstream-first architecture (TrustGatedAttestationPolicy in qhorus, RetroactiveAttestationService). Three review rounds established that the routing infrastructure (devtown#57), incident feedback (devtown#5), and positive attestation flow (qhorus LedgerWriteService) were all already shipped. The epic reduced to: MCP tool + E2E closed-loop test + issue filing.
 
-**TrustGatedAttestationPolicy deferred — CommitmentContext lacks capabilityTag.** The attestation policy design uses capabilityScore() not globalScore() for per-capability trust gating. But CommitmentContext doesn't carry capabilityTag — LedgerWriteService extracts it from the COMMAND JSON AFTER calling the policy. Filed qhorus#307 to move extraction before the policy call. TrustGatedAttestationPolicy (devtown#97) blocked on this.
+**TrustGatedAttestationPolicy shipped (devtown#97 ✅ CLOSED).** The attestation policy uses `capabilityScore()` not `globalScore()` for per-capability trust gating. The original blocker — `CommitmentContext` lacked `capabilityTag` — was resolved by qhorus#307 (✅ CLOSED), which moved capability tag extraction before the policy call. `TrustGatedAttestationPolicy` (`@Alternative @Priority(1)` in `casehub-engine-ledger`) modulates DONE→SOUND attestation confidence based on the agent's capability trust score: above threshold → boosted confidence, borderline → base, below threshold → scaled down. Next step: devtown#141 adds evidential verification (EvidentialChecker V1-V4) for below-threshold agents.
+
+**EvidentialAttestationPolicy shipped (devtown#141 ✅ CLOSED).** `EvidentialAttestationPolicy` (`@Alternative @Priority(2)` in devtown `app/`) wraps `TrustGatedAttestationPolicy` via concrete-type CDI injection. For DONE claims: classifies agent trust phase using `TrustRoutingPolicy.isBootstrap/isBorderline/passesThresholdCheck` + `TrustScoreSource.qualityScores`; if phase is in `evidentialCheckPhases`, runs `EvidentialChecker` V1-V4. V2 (channel has messages) and V3 (not confirming FAILED obligation) fire immediately; V1 (artefact exists) and V4 (verification token) activate when `CommitmentContext` is enriched upstream. Violations produce FLAGGED at 0.8 confidence — structural proof, not probabilistic. Per-capability phase configuration via `EVIDENTIAL_CHECK_PHASES` map in `DevtownTrustRoutingPolicyProvider`: security-review checks BOOTSTRAP+BELOW_THRESHOLD+QUALITY_FAILED; merge-executor checks all four phases including BORDERLINE; style-review checks nothing. Foundation: `TrustPhase` enum and `evidentialCheckPhases` field added to `TrustRoutingPolicy` in `casehub-engine-api` (engine#711).
 
 **FLAGGED attestation feedback loop proven end-to-end.** E2E test proves: SOUND attestations → TrustScoreJob materialises capability scores → TrustWeightedAgentStrategy routes to higher-trust agent → IncidentFeedbackService writes FLAGGED → TrustScoreJob recomputes lower score → routing shifts. The WEIGHTED_MAJORITY aggregation masking issue (ledger#157) was fixed upstream. JPA first-level cache stale reads required fresh transactions on the read side (GE-20260625-aaf3d4).
 
@@ -1094,13 +1094,15 @@ Per the Arc42Stories spec: only decisions not captured inline elsewhere. Layer-s
 - A YAML snippet in §9.4 Layer — casehub-engine showing the core binding structure (security routing + merge short-circuit) so an LLM replicating Layer 5 doesn't need to read `pr-review.yaml`
 - §3 C4Context diagram could reference the Gastown comparison more explicitly — the reader should understand that devtown is the CaseHub answer to Gastown before reading the layer entries
 
-**Gaps to fill for completed but undocumented chapters (C3, C4):**
-- Full Chapter and Layer entries for C3/L3 (qhorus) — code complete, documentation pending
-- Full Chapter entry for C4/L4 (ledger) — code complete, Layer entry written (§9.4), Chapter entry needs expansion
-- §10 expanded with cross-cutting decisions from C3/C4 (e.g., `causedByEntryId` chain design)
+**Gaps filled (2026-07-12 stale scan):**
+- ✅ Chapter 3 (C3) and Layer 3 (qhorus) — full content written: QhorusPrReviewService, COMMAND/DECLINE lifecycle, ReviewerOutcome/ReviewerAgent ports
+- ✅ Chapter 4 (C4) — content expanded: MergeDecisionLedgerEntry Merkle hashing, four compliance dimensions, GDPR erasure
+- ✅ Chapter 5 (C5) — full content written: TrustWeightedAgentStrategy, four-phase maturity model, TrustGatedAttestationPolicy
+- ✅ Layer 3 (qhorus) — full content written (mirroring C3 chapter)
+- ✅ TrustGatedAttestationPolicy blocker resolved (qhorus#307 ✅, devtown#97 ✅)
 
-**Gaps to fill as Chapter 5 closes:**
-- Full Chapter and Layer entries for C5/L6 (trust routing)
+**Remaining gaps:**
+- §10 expanded with cross-cutting decisions from C3/C4 (e.g., `causedByEntryId` chain design)
 - §10 expanded with trust attestation schema decisions
 - §12 Technical debt section updated as items close
 

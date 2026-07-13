@@ -195,7 +195,7 @@ public final class PrReviewCaseDefinition {
                 ctx.getPath("securityReview.reducedScope") == null))
             .contextWrite(Map.of("securityReview", Map.of("status", "PENDING", "reducedScope", true, "excludedAgents", List.of())))
             .capability(securityReviewCap)
-            .inputSchemaOverride(secPolicy.reducedInputSchema())
+            .inputProjectionOverride(secPolicy.reducedInputSchema())
             .conflictResolverStrategy(DEEP_MERGE)
             .outcomePolicy(REROUTE_POLICY)
             .build());
@@ -207,7 +207,7 @@ public final class PrReviewCaseDefinition {
                 ctx.getPath("architectureReview.reducedScope") == null))
             .contextWrite(Map.of("architectureReview", Map.of("status", "PENDING", "reducedScope", true, "excludedAgents", List.of())))
             .capability(archReviewCap)
-            .inputSchemaOverride(archPolicy.reducedInputSchema())
+            .inputProjectionOverride(archPolicy.reducedInputSchema())
             .conflictResolverStrategy(DEEP_MERGE)
             .outcomePolicy(REROUTE_POLICY)
             .build());

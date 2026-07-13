@@ -59,7 +59,7 @@ class SlaBreachHandlerWiringTest {
         assertThat(caseId).isNotNull();
 
         String planItemId = await().atMost(5, SECONDS).pollInterval(100, MILLISECONDS).until(() -> {
-            var records = planItemStore.findDelegated(caseId);
+            var records = planItemStore.findDelegatedCrossTenant(caseId);
             return records.stream()
                     .filter(r -> "human-approval".equals(r.bindingName()))
                     .map(PlanItemRecord::planItemId)

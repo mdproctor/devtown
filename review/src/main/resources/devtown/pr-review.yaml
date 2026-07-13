@@ -10,47 +10,47 @@ spec:
   capabilities:
     - name: code-analysis
       description: "Characterises the code: crypto, auth, cross-API changes, scope"
-      inputSchema: "{ pr: .pr }"
-      outputSchema: "{ codeAnalysis: . }"
+      inputProjection: "{ pr: .pr }"
+      outputProjection: "{ codeAnalysis: . }"
 
     - name: security-review
       description: "Security specialist review — fires only on security-sensitive code"
-      inputSchema: "{ pr: .pr, codeAnalysis: .codeAnalysis }"
-      outputSchema: "{ securityReview: { outcome: . } }"
+      inputProjection: "{ pr: .pr, codeAnalysis: .codeAnalysis }"
+      outputProjection: "{ securityReview: { outcome: . } }"
 
     - name: architecture-review
       description: "Architecture review — fires only when cross-API changes are detected"
-      inputSchema: "{ pr: .pr, codeAnalysis: .codeAnalysis }"
-      outputSchema: "{ architectureReview: { outcome: . } }"
+      inputProjection: "{ pr: .pr, codeAnalysis: .codeAnalysis }"
+      outputProjection: "{ architectureReview: { outcome: . } }"
 
     - name: style-review
       description: "Style and formatting check"
-      inputSchema: "{ pr: .pr }"
-      outputSchema: "{ styleCheck: { outcome: . } }"
+      inputProjection: "{ pr: .pr }"
+      outputProjection: "{ styleCheck: { outcome: . } }"
 
     - name: test-coverage
       description: "Test coverage analysis"
-      inputSchema: "{ pr: .pr }"
-      outputSchema: "{ testCoverage: { outcome: . } }"
+      inputProjection: "{ pr: .pr }"
+      outputProjection: "{ testCoverage: { outcome: . } }"
 
     - name: performance-analysis
       description: "Performance impact analysis"
-      inputSchema: "{ pr: .pr }"
-      outputSchema: "{ performanceAnalysis: { outcome: . } }"
+      inputProjection: "{ pr: .pr }"
+      outputProjection: "{ performanceAnalysis: { outcome: . } }"
 
     - name: ci-runner
       description: "Runs the CI suite for the PR"
-      inputSchema: "{ pr: .pr }"
-      outputSchema: "{ ci: { status: . } }"
+      inputProjection: "{ pr: .pr }"
+      outputProjection: "{ ci: { status: . } }"
 
     - name: merge-executor
       description: "Executes the merge when all goals are satisfied"
-      inputSchema: "{ pr: .pr }"
+      inputProjection: "{ pr: .pr }"
 
     - name: merge-queue-enqueue
       description: "Enqueues the PR into the merge queue"
-      inputSchema: "{ pr: .pr, codeAnalysis: .codeAnalysis }"
-      outputSchema: "{ enqueueResult: . }"
+      inputProjection: "{ pr: .pr, codeAnalysis: .codeAnalysis }"
+      outputProjection: "{ enqueueResult: . }"
 
   ## ─── Goals ──────────────────────────────────────────────────────────
   goals:
@@ -224,7 +224,7 @@ spec:
           reducedScope: true
           excludedAgents: []
       capability: security-review
-      inputSchemaOverride: "{ flaggedFiles: .codeAnalysis.flaggedFiles }"
+      inputProjectionOverride: "{ flaggedFiles: .codeAnalysis.flaggedFiles }"
       conflictResolverStrategy: DEEP_MERGE
       outcomePolicy:
         onDecline: REROUTE
@@ -243,7 +243,7 @@ spec:
           reducedScope: true
           excludedAgents: []
       capability: architecture-review
-      inputSchemaOverride: "{ crossingPoints: .codeAnalysis.crossingPoints }"
+      inputProjectionOverride: "{ crossingPoints: .codeAnalysis.crossingPoints }"
       conflictResolverStrategy: DEEP_MERGE
       outcomePolicy:
         onDecline: REROUTE
