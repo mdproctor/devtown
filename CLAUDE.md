@@ -313,7 +313,7 @@ Features Gastown's Refinery provides that devtown must match or exceed:
 | AI coding agent workers | Claudony WorkerProvisioner (already integrated via claudony-casehub) | Foundation ready |
 | Human workspaces (Crew) | Human review WorkItem via casehub-work | Foundation ready |
 | Cross-rig agent routing | Sub-case orchestration | Foundation ready |
-| CLI tooling (`gt feed`, `gt problems`, etc.) | DevtownMcpTools — 8 read + 4 write + PROV-DM export (`app/mcp/`) | ✅ devtown#17 |
+| CLI tooling (`gt feed`, `gt problems`, etc.) | DevtownMcpTools — 19 read + 6 write + PROV-DM export (`app/mcp/`) | ✅ devtown#17 |
 | Predecessor session context (`gt seance`) | WorkerContextProvider + Doltgres AS OF (P1.5) | Partial |
 | Federated reputation (Wasteland) | TrustExport/ImportService (P2.1) | Not started |
 | Sandboxed execution | gt-proxy-server equivalent | Not planned |

@@ -5,13 +5,14 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 public final class PrecedentActivationPolicy {
 
     private PrecedentActivationPolicy() {}
 
     public static Set<String> evaluate(List<Precedent> precedents,
-                                       java.util.function.Function<String, ActivationThreshold> thresholds) {
+                                       Function<String, ActivationThreshold> thresholds) {
         if (precedents.isEmpty()) {return Set.of();}
         Map<String, Double> weighted = weightedFindings(precedents);
         double totalWeight = precedents.stream()

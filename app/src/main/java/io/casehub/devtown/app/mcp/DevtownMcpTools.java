@@ -513,7 +513,7 @@ public class DevtownMcpTools {
         }
         var vector = io.casehub.devtown.domain.cbr.PrFeatureVector.from(
                 repo, prNumber, contributor, linesChanged,
-                List.of(changedPaths.split(",")));
+                java.util.Arrays.stream(changedPaths.split(",")).map(String::trim).toList());
         return cbrRetrievalService.get().findSimilar(vector, repo, principal.tenancyId());
     }
 
@@ -527,4 +527,35 @@ public class DevtownMcpTools {
                 "sampleCount", cbrWeightOverrides.sampleCount()
                                );
     }
+
+    @Tool(
+            name = "get_agent_messages",
+            description = "Get agent channel message history for a case — dispatch, completion, decline, failure events with payloads"
+    )
+    public List<AgentMessage> getAgentMessages(
+            @ToolArg(name = "case_id", description = "Case UUID") String caseIdStr
+                                              ) {
+        UUID caseId = UUID.fromString(caseIdStr);
+        try {
+            var events = caseHubRuntime.eventLog(caseId, java.util.Set.of(
+                    io.casehub.api.model.event.CaseHubEventType.AGENT_DISPATCHED,
+                    io.casehub.api.model.event.CaseHubEventType.AGENT_COMPLETED,
+                    io.casehub.api.model.event.CaseHubEventType.AGENT_FAILED,
+                    io.casehub.api.model.event.CaseHubEventType.WORKER_OUTCOME_DECLINED,
+                    io.casehub.api.model.event.CaseHubEventType.WORKER_OUTCOME_FAILED,
+                    io.casehub.api.model.event.CaseHubEventType.WORKER_OUTCOME_EXPIRED,
+                    io.casehub.api.model.event.CaseHubEventType.ORCHESTRATION_ESCALATED
+                                                                         )).toCompletableFuture().join();
+            return events.stream().map(e -> new AgentMessage(
+                    e.timestamp(), e.eventType().name(),
+                    e.payload() != null ? e.payload().toString() : null
+            )).toList();
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    public record AgentMessage(
+            java.time.Instant timestamp, String messageType, String payload
+    ) {}
 }
