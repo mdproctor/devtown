@@ -1,6 +1,7 @@
 package io.casehub.devtown.domain.queue;
 
 import io.casehub.devtown.domain.preferences.BooleanPreference;
+import io.casehub.devtown.domain.preferences.DoublePreference;
 import io.casehub.devtown.domain.preferences.IntPreference;
 import io.casehub.devtown.domain.sla.StringPreference;
 import io.casehub.platform.api.preferences.PreferenceKey;
@@ -42,6 +43,10 @@ public final class MergeQueuePreferenceKeys {
     public static final PreferenceKey<BooleanPreference> DEQUEUE_ON_UNLABEL =
         new PreferenceKey<>("devtown.merge-queue", "dequeue-on-unlabel",
             BooleanPreference.of(false), BooleanPreference::parse);
+    public static final PreferenceKey<DoublePreference>  DEFAULT_ADMISSION_TRUST_SCORE =
+            new PreferenceKey<>("devtown.merge-queue", "default-admission-trust-score",
+                                DoublePreference.of(0.5), DoublePreference::parse);
+
     public static final PreferenceKey<IntPreference>     BATCH_RETENTION_DAYS =
             new PreferenceKey<>("devtown.merge-queue", "batch-retention-days",
                                 IntPreference.of(30), IntPreference::parse);

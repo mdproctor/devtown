@@ -1,12 +1,17 @@
 package io.casehub.devtown.domain.queue;
 
 import io.casehub.devtown.domain.preferences.BooleanPreference;
+import io.casehub.devtown.domain.preferences.DoublePreference;
 import io.casehub.devtown.domain.preferences.IntPreference;
 import io.casehub.devtown.domain.sla.StringPreference;
 import io.casehub.platform.api.preferences.PreferenceKey;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MergeQueuePreferenceKeysTest {
 
@@ -125,4 +130,26 @@ class MergeQueuePreferenceKeysTest {
         PreferenceKey<StringPreference> key = MergeQueuePreferenceKeys.slaKeyFor(PriorityLane.NORMAL);
         assertSame(MergeQueuePreferenceKeys.SLA_NORMAL, key);
     }
+
+    @Test
+    void defaultAdmissionTrustScore_hasCorrectQualifiedNameAndDefault() {
+        PreferenceKey<DoublePreference> key = MergeQueuePreferenceKeys.DEFAULT_ADMISSION_TRUST_SCORE;
+        assertEquals("devtown.merge-queue.default-admission-trust-score", key.qualifiedName());
+        assertEquals(0.5, key.defaultValue().value(), 0.001);
+    }
+
+    @Test
+    void defaultAdmissionTrustScore_parse() {
+        PreferenceKey<DoublePreference> key    = MergeQueuePreferenceKeys.DEFAULT_ADMISSION_TRUST_SCORE;
+        DoublePreference                parsed = key.parser().apply("0.3");
+        assertEquals(0.3, parsed.value(), 0.001);
+    }
+
+    @Test
+    void defaultAdmissionTrustScore_parseInvalid_throws() {
+        PreferenceKey<DoublePreference> key = MergeQueuePreferenceKeys.DEFAULT_ADMISSION_TRUST_SCORE;
+        assertThrows(NumberFormatException.class, () -> key.parser().apply("not-a-number"));
+    }
+
+
 }

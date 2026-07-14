@@ -16,13 +16,15 @@ import io.casehub.devtown.queue.QueuedPr;
 import io.casehub.platform.api.preferences.PreferenceProvider;
 import io.casehub.platform.api.preferences.Preferences;
 import io.casehub.platform.api.preferences.SettingsScope;
-import io.casehub.work.runtime.service.WorkItemService;
 import io.casehub.work.api.WorkItemCreateRequest;
+import io.casehub.work.runtime.service.WorkItemService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import org.jboss.logging.Logger;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -34,7 +36,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import org.jboss.logging.Logger;
 
 /**
  * Merge queue lifecycle orchestration.
@@ -74,17 +75,18 @@ public class MergeQueueService implements MergeQueuePort {
     /**
      * Hexagonal port implementation: minimal admission with neutral defaults.
      *
-     * <p>Neutral defaults: trust=0.5, lane=NORMAL, capabilities=empty,
-     * enqueued_at=now. The webhook boundary provides only prNumber, repository,
-     * headSha, and author.
+     * <p>Neutral defaults: trust score from preferences (default 0.5),
+     * lane=NORMAL, capabilities=empty, enqueued_at=now. The webhook boundary
+     * provides only prNumber, repository, headSha, and author.
      */
     @Override
     public AdmissionResult admit(int prNumber, String repository, String headSha, String author) {
+        Preferences prefs      = resolvePreferences();
+        double      trustScore = prefs.getOrDefault(MergeQueuePreferenceKeys.DEFAULT_ADMISSION_TRUST_SCORE).value();
         QueuedPr pr = new QueuedPr(prNumber, repository, headSha, author,
-            0.5, PriorityLane.NORMAL, Instant.now(), Set.of());
+                                   trustScore, PriorityLane.NORMAL, Instant.now(), Set.of());
         boolean inserted = enqueue(pr);
-        return inserted ? AdmissionResult.ENQUEUED : AdmissionResult.ALREADY_QUEUED;
-    }
+        return inserted ? AdmissionResult.ENQUEUED : AdmissionResult.ALREADY_QUEUED;}
 
     /**
      * Enqueue a PR: resolve preferences, create WorkItem (if available),
