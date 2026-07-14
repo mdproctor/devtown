@@ -135,6 +135,8 @@ public class PrReviewCaseTracker {
     }
 
     void onCaseLifecycle(@ObservesAsync CaseLifecycleEvent event) {
+        if (event.caseStatus() == null) {return;}
+
         updateStatus(event.caseId(), event.caseStatus(), Instant.now());
 
         if (CaseTrackingStatus.fromCaseStatus(event.caseStatus()).isTerminal()) {
@@ -144,18 +146,17 @@ public class PrReviewCaseTracker {
             }
         }
 
-        CaseInfo info = cases.get(event.caseId());
-        String repo = info != null ? info.payload().repo() : "unknown";
-        int prNumber = info != null ? info.payload().prNumber() : 0;
+        CaseInfo info     = cases.get(event.caseId());
+        String   repo     = info != null ? info.payload().repo() : "unknown";
+        int      prNumber = info != null ? info.payload().prNumber() : 0;
 
         addEvent(new TrackedEvent(
-            Instant.now(),
-            event.caseId(),
-            repo,
-            prNumber,
-            event.eventType(),
-            event.caseStatus(),
-            event.actorId()
-        ));
-    }
+                Instant.now(),
+                event.caseId(),
+                repo,
+                prNumber,
+                event.eventType(),
+                event.caseStatus(),
+                event.actorId()
+        ));}
 }

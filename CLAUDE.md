@@ -198,7 +198,7 @@ Read these **before designing**, not after. The concern column tells you when ea
 
 | Concern | Read first |
 |---------|-----------|
-| Writing a `@QuarkusTest` for HITL bindings | PP-20260521-134c38 (pre-seed all parallel check keys with non-null values); only `MemoryPlanItemStore` remains in `quarkus.arc.selected-alternatives` — `MemorySubCaseGroupRepository` replaced by `DevtownSubCaseGroupRepository @ApplicationScoped` in `app/spi/` |
+| Writing a `@QuarkusTest` for HITL bindings | PP-20260521-134c38 (pre-seed all parallel check keys with non-null values); only `InMemoryPlanItemStore` remains in `quarkus.arc.selected-alternatives` — `MemorySubCaseGroupRepository` replaced by `DevtownSubCaseGroupRepository @ApplicationScoped` in `app/spi/` |
 | Testing SPI wiring | `../garden/docs/protocols/universal/spi-testing-alternative-inner-classes.md` — `@Alternative` static inner classes, not Mockito |
 | `@QuarkusTest` database setup | `../garden/docs/protocols/universal/quarkus-test-database.md` — H2 MODE=PostgreSQL, datasource config |
 

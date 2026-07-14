@@ -5,10 +5,9 @@ import io.casehub.devtown.domain.memory.DevtownMemoryKeys;
 import io.casehub.devtown.domain.memory.ReviewOutcome;
 import io.casehub.devtown.review.PrPayload;
 import io.casehub.devtown.review.ReviewCompletedEvent;
-import io.casehub.neocortex.memory.CaseMemoryStore;
+import io.casehub.memory.runtime.MemoryEmitter;
 import io.casehub.neocortex.memory.MemoryAttributeKeys;
 import io.casehub.neocortex.memory.MemoryInput;
-import jakarta.enterprise.inject.Instance;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -17,21 +16,18 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.*;
 
 class CaseMemoryEmitterTest {
 
     private CaseMemoryEmitter emitter;
-    private CaseMemoryStore store;
-    private Instance<CaseMemoryStore> storeInstance;
+    private MemoryEmitter memoryEmitter;
 
     @BeforeEach
     void setUp() {
         emitter = new CaseMemoryEmitter();
-        store = mock(CaseMemoryStore.class);
-        storeInstance = mockInstance(store);
-        emitter.store = storeInstance;
+        memoryEmitter = mock(MemoryEmitter.class);
+        emitter.memoryEmitter = memoryEmitter;
     }
 
     @Test
@@ -41,7 +37,7 @@ class CaseMemoryEmitterTest {
         emitter.onReviewCompleted(event);
 
         var captor = ArgumentCaptor.forClass(List.class);
-        verify(store).storeAll(captor.capture());
+        verify(memoryEmitter).emitAll(captor.capture());
         var facts = (List<MemoryInput>) captor.getValue();
 
         assertThat(facts).hasSize(3); // contributor + reviewer + module
@@ -54,7 +50,7 @@ class CaseMemoryEmitterTest {
         emitter.onReviewCompleted(event);
 
         var captor = ArgumentCaptor.forClass(List.class);
-        verify(store).storeAll(captor.capture());
+        verify(memoryEmitter).emitAll(captor.capture());
         var facts = (List<MemoryInput>) captor.getValue();
 
         var contributorFact = facts.stream()
@@ -71,7 +67,7 @@ class CaseMemoryEmitterTest {
         emitter.onReviewCompleted(event);
 
         var captor = ArgumentCaptor.forClass(List.class);
-        verify(store).storeAll(captor.capture());
+        verify(memoryEmitter).emitAll(captor.capture());
         var facts = (List<MemoryInput>) captor.getValue();
 
         var reviewerFact = facts.stream()
@@ -88,7 +84,7 @@ class CaseMemoryEmitterTest {
         emitter.onReviewCompleted(event);
 
         var captor = ArgumentCaptor.forClass(List.class);
-        verify(store).storeAll(captor.capture());
+        verify(memoryEmitter).emitAll(captor.capture());
         var facts = (List<MemoryInput>) captor.getValue();
 
         var codeAreaFact = facts.stream()
@@ -105,7 +101,7 @@ class CaseMemoryEmitterTest {
         emitter.onReviewCompleted(event);
 
         var captor = ArgumentCaptor.forClass(List.class);
-        verify(store).storeAll(captor.capture());
+        verify(memoryEmitter).emitAll(captor.capture());
         var facts = (List<MemoryInput>) captor.getValue();
 
         assertThat(facts).allSatisfy(fact -> {
@@ -130,7 +126,7 @@ class CaseMemoryEmitterTest {
         emitter.onReviewCompleted(event);
 
         var captor = ArgumentCaptor.forClass(List.class);
-        verify(store).storeAll(captor.capture());
+        verify(memoryEmitter).emitAll(captor.capture());
         var facts = (List<MemoryInput>) captor.getValue();
 
         assertThat(facts).allSatisfy(fact -> {
@@ -145,7 +141,7 @@ class CaseMemoryEmitterTest {
         emitter.onReviewCompleted(event);
 
         var captor = ArgumentCaptor.forClass(List.class);
-        verify(store).storeAll(captor.capture());
+        verify(memoryEmitter).emitAll(captor.capture());
         var facts = (List<MemoryInput>) captor.getValue();
 
         assertThat(facts).allSatisfy(fact -> {
@@ -163,7 +159,7 @@ class CaseMemoryEmitterTest {
         emitter.onReviewCompleted(event);
 
         var captor = ArgumentCaptor.forClass(List.class);
-        verify(store).storeAll(captor.capture());
+        verify(memoryEmitter).emitAll(captor.capture());
         var facts = (List<MemoryInput>) captor.getValue();
 
         // contributor + reviewer + 2 modules (app, domain)
@@ -186,7 +182,7 @@ class CaseMemoryEmitterTest {
         emitter.onReviewCompleted(event);
 
         var captor = ArgumentCaptor.forClass(List.class);
-        verify(store).storeAll(captor.capture());
+        verify(memoryEmitter).emitAll(captor.capture());
         var facts = (List<MemoryInput>) captor.getValue();
 
         assertThat(facts).allSatisfy(fact -> {
@@ -204,7 +200,7 @@ class CaseMemoryEmitterTest {
         emitter.onReviewCompleted(event);
 
         var captor = ArgumentCaptor.forClass(List.class);
-        verify(store).storeAll(captor.capture());
+        verify(memoryEmitter).emitAll(captor.capture());
         var facts = (List<MemoryInput>) captor.getValue();
 
         var codeAreaFact = facts.stream()
@@ -222,36 +218,13 @@ class CaseMemoryEmitterTest {
         emitter.onReviewCompleted(event);
 
         var captor = ArgumentCaptor.forClass(List.class);
-        verify(store).storeAll(captor.capture());
+        verify(memoryEmitter).emitAll(captor.capture());
         var facts = (List<MemoryInput>) captor.getValue();
 
         assertThat(facts).hasSize(2);
         assertThat(facts)
             .extracting(f -> f.attributes().get(DevtownMemoryKeys.ENTITY_TYPE))
             .containsExactlyInAnyOrder("contributor", "reviewer");
-    }
-
-    @Test
-    void store_failure_is_swallowed() {
-        var event = sampleEvent("security-review", "mdproctor", List.of("app/src/main/Foo.java"));
-        doThrow(new RuntimeException("DB down")).when(store).storeAll(anyList());
-
-        assertThatCode(() -> emitter.onReviewCompleted(event))
-            .doesNotThrowAnyException();
-    }
-
-    @Test
-    void store_not_resolvable_skips_storeAll() {
-        var event = sampleEvent("security-review", "mdproctor", List.of("app/src/main/Foo.java"));
-
-        // Mock isResolvable() to return false
-        Instance<CaseMemoryStore> unresolvableInstance = mock(Instance.class);
-        when(unresolvableInstance.isResolvable()).thenReturn(false);
-        emitter.store = unresolvableInstance;
-
-        emitter.onReviewCompleted(event);
-
-        verify(store, never()).storeAll(anyList());
     }
 
     // --- Helpers ---
@@ -268,11 +241,4 @@ class CaseMemoryEmitterTest {
         );
     }
 
-    @SuppressWarnings("unchecked")
-    private Instance<CaseMemoryStore> mockInstance(CaseMemoryStore store) {
-        Instance<CaseMemoryStore> instance = mock(Instance.class);
-        when(instance.isResolvable()).thenReturn(true);
-        when(instance.get()).thenReturn(store);
-        return instance;
-    }
 }
