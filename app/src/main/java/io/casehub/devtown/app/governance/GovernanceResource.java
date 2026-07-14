@@ -16,15 +16,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * REST endpoints for the governance workbench.
- *
- * Thin delegation layer to GovernanceQueryService. All endpoints require admin role.
- * Consumed by the TypeScript frontend datasets (Task 5/6).
- */
 @Path("/api/governance")
 @Produces(MediaType.APPLICATION_JSON)
-@RolesAllowed(DevtownRoles.ADMIN)
+@RolesAllowed({DevtownRoles.ADMIN, DevtownRoles.ENGINEER, DevtownRoles.AUDITOR})
 public class GovernanceResource {
 
     @Inject

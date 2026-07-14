@@ -1,9 +1,9 @@
 package io.casehub.devtown.app;
 
+import io.casehub.devtown.domain.DevtownRoles;
 import io.casehub.devtown.review.PrPayload;
 import io.casehub.devtown.review.PrReviewApplicationService;
 import io.casehub.devtown.review.PrReviewOutcome;
-import io.casehub.devtown.domain.DevtownRoles;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -15,7 +15,7 @@ import jakarta.ws.rs.core.MediaType;
 @Path("/api/reviews")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@RolesAllowed(DevtownRoles.ADMIN)
+@RolesAllowed({DevtownRoles.ADMIN, DevtownRoles.ENGINEER, DevtownRoles.SERVICE})
 public class PrReviewResource {
 
     @Inject

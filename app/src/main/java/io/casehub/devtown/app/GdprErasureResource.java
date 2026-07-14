@@ -18,18 +18,20 @@ import jakarta.ws.rs.core.MediaType;
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@RolesAllowed(DevtownRoles.ADMIN)
+@RolesAllowed({DevtownRoles.ADMIN, DevtownRoles.DATA_CONTROLLER})
 public class GdprErasureResource {
 
-    @Inject GdprErasureService service;
-    @Inject CurrentPrincipal principal;
+    @Inject
+    GdprErasureService service;
+    @Inject
+    CurrentPrincipal   principal;
 
     @POST
     public ErasureReceipt erase(
             @PathParam("actorId") final String actorId,
             final ErasureRequest request) {
         return service.erase(actorId, principal.tenancyId(),
-                request != null ? request.reason() : null);
+                             request != null ? request.reason() : null);
     }
 
     public record ErasureRequest(String reason) {}
