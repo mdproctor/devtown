@@ -1,9 +1,11 @@
 package io.casehub.devtown.app;
 
+import io.casehub.devtown.domain.ReviewDomain;
+import io.casehub.devtown.domain.cbr.ActivationThreshold;
 import io.casehub.devtown.domain.cbr.CbrPreferenceKeys;
 import io.casehub.devtown.domain.cbr.PrFeatureVector;
-import io.casehub.devtown.domain.cbr.PrecedentActivationPolicy;
 import io.casehub.devtown.domain.cbr.Precedent;
+import io.casehub.devtown.domain.cbr.PrecedentActivationPolicy;
 import io.casehub.devtown.domain.memory.DevtownMemoryDomain;
 import io.casehub.devtown.domain.memory.MemoryRecallKeys;
 import io.casehub.devtown.domain.memory.ModulePathNormalizer;
@@ -26,6 +28,7 @@ import org.jboss.logging.Logger;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -133,11 +136,17 @@ public class CaseMemoryRecaller {
         if (precedents.isEmpty()) {return Set.of();}
         Preferences cbrPrefs = preferenceProvider.resolve(
                 SettingsScope.of("casehubio", "devtown", "cbr"));
-        int minFindings = cbrPrefs.getOrDefault(
-                CbrPreferenceKeys.PRECEDENT_ACTIVATION_MIN_FINDINGS).value();
-        double minFraction = cbrPrefs.getOrDefault(
-                CbrPreferenceKeys.PRECEDENT_ACTIVATION_MIN_FRACTION).value();
-        return PrecedentActivationPolicy.evaluate(precedents, minFindings, minFraction);
-    }
+        var defaultThreshold = new ActivationThreshold(
+                cbrPrefs.getOrDefault(CbrPreferenceKeys.PRECEDENT_ACTIVATION_MIN_FINDINGS).value(),
+                cbrPrefs.getOrDefault(CbrPreferenceKeys.PRECEDENT_ACTIVATION_MIN_FRACTION).value());
+        var overrides = Map.of(
+                ReviewDomain.SECURITY_REVIEW, new ActivationThreshold(
+                        cbrPrefs.getOrDefault(CbrPreferenceKeys.SECURITY_REVIEW_MIN_FINDINGS).value(),
+                        cbrPrefs.getOrDefault(CbrPreferenceKeys.SECURITY_REVIEW_MIN_FRACTION).value()),
+                ReviewDomain.ARCHITECTURE_REVIEW, new ActivationThreshold(
+                        cbrPrefs.getOrDefault(CbrPreferenceKeys.ARCHITECTURE_REVIEW_MIN_FINDINGS).value(),
+                        cbrPrefs.getOrDefault(CbrPreferenceKeys.ARCHITECTURE_REVIEW_MIN_FRACTION).value()));
+        return PrecedentActivationPolicy.evaluate(precedents,
+                                                  capability -> overrides.getOrDefault(capability, defaultThreshold));}
 
 }

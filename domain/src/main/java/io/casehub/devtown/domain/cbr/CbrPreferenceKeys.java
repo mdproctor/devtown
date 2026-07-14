@@ -38,6 +38,14 @@ public final class CbrPreferenceKeys {
             new PreferenceKey<>(NS, "precedent-activation-min-findings", IntPreference.of(2), IntPreference::parse);
     public static final PreferenceKey<DoublePreference>  PRECEDENT_ACTIVATION_MIN_FRACTION =
             new PreferenceKey<>(NS, "precedent-activation-min-fraction", DoublePreference.of(0.4), DoublePreference::parse);
+    public static final PreferenceKey<IntPreference>     SECURITY_REVIEW_MIN_FINDINGS      =
+            new PreferenceKey<>(NS, "precedent-activation.security-review.min-findings", IntPreference.of(2), IntPreference::parse);
+    public static final PreferenceKey<DoublePreference>  SECURITY_REVIEW_MIN_FRACTION      =
+            new PreferenceKey<>(NS, "precedent-activation.security-review.min-fraction", DoublePreference.of(0.3), DoublePreference::parse);
+    public static final PreferenceKey<IntPreference>     ARCHITECTURE_REVIEW_MIN_FINDINGS  =
+            new PreferenceKey<>(NS, "precedent-activation.architecture-review.min-findings", IntPreference.of(2), IntPreference::parse);
+    public static final PreferenceKey<DoublePreference>  ARCHITECTURE_REVIEW_MIN_FRACTION  =
+            new PreferenceKey<>(NS, "precedent-activation.architecture-review.min-fraction", DoublePreference.of(0.4), DoublePreference::parse);
 
 
     private CbrPreferenceKeys() {}

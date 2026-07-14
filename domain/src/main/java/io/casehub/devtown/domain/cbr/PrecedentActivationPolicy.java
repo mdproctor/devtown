@@ -11,15 +11,17 @@ public final class PrecedentActivationPolicy {
     private PrecedentActivationPolicy() {}
 
     public static Set<String> evaluate(List<Precedent> precedents,
-                                        int minFindings, double minFraction) {
-        if (precedents.isEmpty()) return Set.of();
+                                       java.util.function.Function<String, ActivationThreshold> thresholds) {
+        if (precedents.isEmpty()) {return Set.of();}
         Map<String, Long> counts = countFindings(precedents);
-        Set<String> result = new LinkedHashSet<>();
+        Set<String>       result = new LinkedHashSet<>();
         for (var entry : counts.entrySet()) {
-            long count = entry.getValue();
-            if (count >= minFindings &&
-                (double) count / precedents.size() >= minFraction) {
-                result.add(entry.getKey());
+            String              capability = entry.getKey();
+            long                count      = entry.getValue();
+            ActivationThreshold t          = thresholds.apply(capability);
+            if (count >= t.minFindings() &&
+                (double) count / precedents.size() >= t.minFraction()) {
+                result.add(capability);
             }
         }
         return Set.copyOf(result);
