@@ -19,10 +19,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+
+import java.util.Map;
 
 class PrReviewBindingConditionTest {
 
@@ -41,6 +42,14 @@ class PrReviewBindingConditionTest {
             .map(b -> (LambdaExpressionEvaluator) b.getWhen())
             .orElseThrow(() -> new AssertionError("Binding not found: " + bindingName));
     }
+
+    private io.casehub.api.model.Binding binding(String bindingName) {
+        return def.getBindings().stream()
+                  .filter(b -> b.getName().equals(bindingName))
+                  .findFirst()
+                  .orElseThrow(() -> new AssertionError("Binding not found: " + bindingName));
+    }
+
 
     private MapCaseContext ctx(Map<String, Object> data) {
         return new MapCaseContext(data);
@@ -232,6 +241,51 @@ class PrReviewBindingConditionTest {
             data.remove("securityReview");
             // codeAnalysis already has securitySensitive=false in allApproved() via analysis(false, false)
             assertThat(condition("merge-direct").test(ctx(data))).isTrue();
+        }
+    }
+
+    @Nested
+    class ActivationSource {
+        @SuppressWarnings("unchecked")
+        private String activationSource(String bindingName, String contextKey) {
+            var cw = binding(bindingName).getContextWrite();
+            assertThat(cw).isNotNull();
+            var nested = (Map<String, Object>) cw.get(contextKey);
+            assertThat(nested).isNotNull();
+            return (String) nested.get("activationSource");
+        }
+
+        @Test
+        void contentTriggered_securityReview_writesContentAnalysis() {
+            assertThat(activationSource("security-review", "securityReview"))
+                    .isEqualTo("content-analysis");
+        }
+
+        @Test
+        void contentTriggered_architectureReview_writesContentAnalysis() {
+            assertThat(activationSource("architecture-review", "architectureReview"))
+                    .isEqualTo("content-analysis");
+        }
+
+        @Test
+        void precedentTriggered_securityReview_writesPrecedent() {
+            assertThat(activationSource("precedent-security-review", "securityReview"))
+                    .isEqualTo("precedent");
+        }
+
+        @Test
+        void precedentTriggered_architectureReview_writesPrecedent() {
+            assertThat(activationSource("precedent-architecture-review", "architectureReview"))
+                    .isEqualTo("precedent");
+        }
+
+        @Test
+        void unconditionalBindings_haveNoContextWrite() {
+            assertThat(binding("initial-analysis").getContextWrite()).isNull();
+            assertThat(binding("run-ci").getContextWrite()).isNull();
+            assertThat(binding("style-check").getContextWrite()).isNull();
+            assertThat(binding("test-coverage").getContextWrite()).isNull();
+            assertThat(binding("performance-analysis").getContextWrite()).isNull();
         }
     }
 }

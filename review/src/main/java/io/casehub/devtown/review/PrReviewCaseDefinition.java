@@ -149,13 +149,15 @@ public final class PrReviewCaseDefinition {
             ctx -> Boolean.TRUE.equals(ctx.getPath("codeAnalysis.complete")) &&
                    Boolean.TRUE.equals(ctx.getPath("codeAnalysis.securitySensitive")) &&
                    ctx.get("securityReview") == null,
-            securityReviewCap));
+            securityReviewCap,
+            Map.of("securityReview", Map.of("activationSource", "content-analysis"))));
 
         def.getBindings().add(capBinding("architecture-review", trigger,
             ctx -> Boolean.TRUE.equals(ctx.getPath("codeAnalysis.complete")) &&
                    Boolean.TRUE.equals(ctx.getPath("codeAnalysis.architectureCrossing")) &&
                    ctx.get("architectureReview") == null,
-            archReviewCap));
+            archReviewCap,
+            Map.of("architectureReview", Map.of("activationSource", "content-analysis"))));
 
         def.getBindings().add(capBinding("style-check", trigger,
             ctx -> Boolean.TRUE.equals(ctx.getPath("codeAnalysis.complete")) &&
@@ -336,13 +338,21 @@ public final class PrReviewCaseDefinition {
     }
 
     private static Binding capBinding(String name, ContextChangeTrigger trigger,
-            Predicate<CaseContext> condition, Capability capability) {
-        return Binding.builder().name(name).on(trigger)
-            .when(new LambdaExpressionEvaluator(condition))
-            .capability(capability)
-            .conflictResolverStrategy(DEEP_MERGE)
-            .outcomePolicy(REROUTE_POLICY)
-            .build();
+                                      Predicate<CaseContext> condition, Capability capability) {
+        return capBinding(name, trigger, condition, capability, null);
+    }
+
+    private static Binding capBinding(String name, ContextChangeTrigger trigger,
+                                      Predicate<CaseContext> condition, Capability capability, Map<String, Object> contextWrite) {
+        var builder = Binding.builder().name(name).on(trigger)
+                             .when(new LambdaExpressionEvaluator(condition))
+                             .capability(capability)
+                             .conflictResolverStrategy(DEEP_MERGE)
+                             .outcomePolicy(REROUTE_POLICY);
+        if (contextWrite != null) {
+            builder.contextWrite(contextWrite);
+        }
+        return builder.build();
     }
 
     private static void addEscalation(CaseDefinition def, ContextChangeTrigger trigger,

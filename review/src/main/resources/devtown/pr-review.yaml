@@ -156,6 +156,9 @@ spec:
         .codeAnalysis.complete == true and
         .codeAnalysis.securitySensitive == true and
         .securityReview == null
+      contextWrite:
+        securityReview:
+          activationSource: content-analysis
       capability: security-review
       conflictResolverStrategy: DEEP_MERGE
       outcomePolicy:
@@ -170,6 +173,9 @@ spec:
         .codeAnalysis.complete == true and
         .codeAnalysis.architectureCrossing == true and
         .architectureReview == null
+      contextWrite:
+        architectureReview:
+          activationSource: content-analysis
       capability: architecture-review
       conflictResolverStrategy: DEEP_MERGE
       outcomePolicy:
