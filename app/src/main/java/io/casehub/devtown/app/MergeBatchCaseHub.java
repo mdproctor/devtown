@@ -51,7 +51,8 @@ public class MergeBatchCaseHub extends YamlCaseHub {
                                           .name("batch-ci-runner")
                                           .capabilityName("batch-ci-runner")
                                           .function(this::adaptBatchCiRunner)
-                                          .build());}
+                                          .build());
+    }
 
     @SuppressWarnings("unchecked")
     WorkerResult adaptBatchCiRunner(Map<String, Object> input) {

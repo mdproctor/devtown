@@ -1,9 +1,6 @@
 package io.casehub.devtown.app.trust;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import io.casehub.ledger.api.model.AttestationVerdict;
-import io.casehub.ledger.api.model.CapabilityTag;
 import io.casehub.ledger.api.model.LedgerAttestation;
 import io.casehub.ledger.api.model.LedgerEntry;
 import io.casehub.ledger.api.model.LedgerEntryType;
@@ -20,10 +17,13 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.security.TestSecurity;
 import jakarta.inject.Inject;
+import org.junit.jupiter.api.Test;
+
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @QuarkusTest
 @TestProfile(TrustScoringTestProfile.class)
@@ -119,35 +119,47 @@ class TrustGatedAttestationPolicyActivationTest {
     }
 
     private void seedAttestations(String agentId, String capabilityTag, int count,
-                                   AttestationVerdict verdict, double confidence) {
+                                  AttestationVerdict verdict, double confidence) {
+        // Phase 1: save all LedgerEntries in one transaction so IDs are committed
+        var savedIds = new java.util.ArrayList<java.util.AbstractMap.SimpleEntry<UUID, UUID>>();
         QuarkusTransaction.requiringNew().run(() -> {
             for (int i = 0; i < count; i++) {
-                UUID caseId = UUID.randomUUID();
+                UUID    caseId     = UUID.randomUUID();
                 Instant occurredAt = Instant.now();
 
                 WorkerDecisionEntry entry = new WorkerDecisionEntry();
-                entry.subjectId = caseId;
-                entry.caseId = caseId;
-                entry.tenancyId = TENANT;
-                entry.workerId = agentId;
-                entry.actorId = agentId;
-                entry.actorType = ActorType.AGENT;
-                entry.actorRole = "WORKER";
+                entry.subjectId     = caseId;
+                entry.caseId        = caseId;
+                entry.tenancyId     = TENANT;
+                entry.workerId      = agentId;
+                entry.actorId       = agentId;
+                entry.actorType     = ActorType.AGENT;
+                entry.actorRole     = "WORKER";
                 entry.capabilityTag = capabilityTag;
-                entry.entryType = LedgerEntryType.EVENT;
-                entry.occurredAt = occurredAt;
+                entry.entryType     = LedgerEntryType.EVENT;
+                entry.occurredAt    = occurredAt;
                 LedgerEntry saved = ledgerRepo.save(entry, TENANT);
+                savedIds.add(new java.util.AbstractMap.SimpleEntry<>(saved.id, caseId));
+            }
+        });
+
+        // Phase 2: save attestations — saveAttestation uses REQUIRES_NEW so needs
+        // the entries already committed (not just flushed in a suspended tx)
+        QuarkusTransaction.requiringNew().run(() -> {
+            for (var pair : savedIds) {
+                UUID entryId = pair.getKey();
+                UUID caseId  = pair.getValue();
 
                 LedgerAttestation att = new io.casehub.ledger.runtime.model.LedgerAttestation();
-                att.ledgerEntryId = saved.id;
-                att.subjectId = caseId;
-                att.attestorId = verdict == AttestationVerdict.SOUND ? agentId : "system";
-                att.attestorType = verdict == AttestationVerdict.SOUND ? ActorType.AGENT : ActorType.SYSTEM;
-                att.attestorRole = verdict == AttestationVerdict.SOUND ? "AGENT" : "SYSTEM";
-                att.verdict = verdict;
-                att.confidence = confidence;
+                att.ledgerEntryId = entryId;
+                att.subjectId     = caseId;
+                att.attestorId    = verdict == AttestationVerdict.SOUND ? agentId : "system";
+                att.attestorType  = verdict == AttestationVerdict.SOUND ? ActorType.AGENT : ActorType.SYSTEM;
+                att.attestorRole  = verdict == AttestationVerdict.SOUND ? "AGENT" : "SYSTEM";
+                att.verdict       = verdict;
+                att.confidence    = confidence;
                 att.capabilityTag = capabilityTag;
-                att.occurredAt = occurredAt.plusSeconds(1);
+                att.occurredAt    = Instant.now();
                 ledgerRepo.saveAttestation(att, TENANT);
             }
         });

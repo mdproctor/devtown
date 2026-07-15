@@ -23,21 +23,22 @@ class PrReviewCaseHubTest {
     }
 
     @Test
-    void hasNineteenBindings() {
+    void hasTwentyOneBindings() {
         var def = caseHub.getDefinition();
-        assertThat(def.getBindings()).hasSize(19);
+        assertThat(def.getBindings()).hasSize(21);
         var names = def.getBindings().stream().map(Binding::getName).toList();
         assertThat(names).containsExactlyInAnyOrder(
-            "initial-analysis", "run-ci",
-            "security-review", "architecture-review", "style-check",
-            "test-coverage", "performance-analysis",
-            "human-approval",
-            "security-review-reduced-scope", "architecture-review-reduced-scope",
-            "security-review-human-escalation", "architecture-review-human-escalation",
-            "style-check-human-escalation", "test-coverage-human-escalation",
-            "performance-analysis-human-escalation", "code-analysis-human-escalation",
-            "ci-runner-human-escalation",
-            "enqueue-for-merge", "merge-direct");
+                "initial-analysis", "run-ci",
+                "security-review", "architecture-review", "style-check",
+                "test-coverage", "performance-analysis",
+                "precedent-security-review", "precedent-architecture-review",
+                "human-approval",
+                "security-review-reduced-scope", "architecture-review-reduced-scope",
+                "security-review-human-escalation", "architecture-review-human-escalation",
+                "style-check-human-escalation", "test-coverage-human-escalation",
+                "performance-analysis-human-escalation", "code-analysis-human-escalation",
+                "ci-runner-human-escalation",
+                "enqueue-for-merge", "merge-direct");
     }
 
     @Test

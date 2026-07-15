@@ -10,23 +10,23 @@ spec:
   capabilities:
     - name: batch-ci-runner
       description: "Tests the tip-of-batch against the target branch"
-      inputSchema: "{ batch: .batch }"
-      outputSchema: "{ tipTest: . }"
+      inputProjection: "{ batch: .batch }"
+      outputProjection: "{ tipTest: . }"
 
     - name: merge-executor
       description: "Executes the merge when all goals are satisfied"
-      inputSchema: "{ batch: .batch }"
-      outputSchema: "{ mergeResult: . }"
+      inputProjection: "{ batch: .batch }"
+      outputProjection: "{ mergeResult: . }"
 
     - name: bisection-splitter
       description: "Computes the trust-weighted bisection split"
-      inputSchema: '{ prs: .batch.prs, strategy: (.batch.bisectionStrategy // "trust-weighted"), batch: .batch }'
-      outputSchema: "{ splitResult: . }"
+      inputProjection: '{ prs: .batch.prs, strategy: (.batch.bisectionStrategy // "trust-weighted"), batch: .batch }'
+      outputProjection: "{ splitResult: . }"
 
     - name: pr-reject-and-notify
       description: "Rejects a single PR and notifies the author"
-      inputSchema: "{ pr: .batch.prs[0], reason: .tipTest.failureReason, batchId: .batch.id }"
-      outputSchema: "{ rejectedPrs: [.pr] }"
+      inputProjection: "{ pr: .batch.prs[0], reason: .tipTest.failureReason, batchId: .batch.id }"
+      outputProjection: "{ rejectedPrs: [.pr] }"
 
   ## --- Goals -----------------------------------------------------------------
   goals:
