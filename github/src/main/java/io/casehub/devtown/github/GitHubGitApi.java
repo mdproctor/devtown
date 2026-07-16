@@ -9,6 +9,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+
 import java.util.Map;
 
 @RegisterRestClient(configKey = "github-api")
@@ -40,4 +41,18 @@ public interface GitHubGitApi {
     Map<String, Object> merge(@PathParam("owner") String owner,
                               @PathParam("repo") String repo,
                               Map<String, String> body);
+
+    @GET
+    @Path("/{owner}/{repo}/git/commits/{sha}")
+    GitCommit getCommit(@PathParam("owner") String owner,
+                        @PathParam("repo") String repo,
+                        @PathParam("sha") String sha);
+
+    @POST
+    @Path("/{owner}/{repo}/git/commits")
+    GitCommit createCommit(@PathParam("owner") String owner,
+                           @PathParam("repo") String repo,
+                           Map<String, Object> body);
+
+
 }
