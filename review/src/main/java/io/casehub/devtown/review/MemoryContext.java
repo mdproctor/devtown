@@ -22,25 +22,29 @@ public record MemoryContext(
         return Map.of(
                 "contributorHistory", toEntryList(contributorHistory),
                 "codeAreaHistory", toEntryList(codeAreaHistory),
-                "precedents", precedents.stream().map(p -> Map.<String, Object>of(
-                        "caseId", p.caseId().toString(),
-                        "similarity", p.similarity().score(),
-                        "breakdown", p.similarity().breakdown(),
-                        "outcome", p.outcome(),
-                        "capabilityOutcomes", p.capabilityOutcomes().entrySet().stream()
-                                               .collect(java.util.stream.Collectors.toMap(
-                                                       Map.Entry::getKey,
-                                                       e -> {
-                                                           var co = e.getValue();
-                                                           var m  = new java.util.LinkedHashMap<String, String>();
-                                                           m.put("outcome", co.outcome());
-                                                           if (co.detail() != null) {m.put("detail", co.detail());}
-                                                           return m;
-                                                       }))
-                                                                                 )).toList(),
+                "precedents", precedents.stream().map(p -> {
+                    var m = new java.util.LinkedHashMap<String, Object>();
+                    m.put("caseId", p.caseId().toString());
+                    m.put("similarity", p.similarity().score());
+                    m.put("breakdown", p.similarity().breakdown());
+                    m.put("outcome", p.outcome());
+                    m.put("capabilityOutcomes", p.capabilityOutcomes().entrySet().stream()
+                                                 .collect(java.util.stream.Collectors.toMap(
+                                                         Map.Entry::getKey,
+                                                         e -> {
+                                                             var co = e.getValue();
+                                                             var cm = new java.util.LinkedHashMap<String, String>();
+                                                             cm.put("outcome", co.outcome());
+                                                             if (co.detail() != null) {cm.put("detail", co.detail());}
+                                                             return cm;
+                                                         })));
+                    if (p.completionTime() != null) {
+                        m.put("completionTimeSeconds", p.completionTime().toSeconds());
+                    }
+                    return m;
+                }).toList(),
                 "precedentActivations", List.copyOf(precedentActivations)
-                     );
-    }
+                     );}
 
     public boolean hasRiskSignals() {
         return hasRisk(contributorHistory) || hasRisk(codeAreaHistory)

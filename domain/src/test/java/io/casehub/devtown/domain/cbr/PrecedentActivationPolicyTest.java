@@ -21,12 +21,12 @@ class PrecedentActivationPolicyTest {
     private static final CapabilityOutcome FAILED = new CapabilityOutcome("FAILED", null);
 
     private Precedent precedent(Map<String, CapabilityOutcome> outcomes) {
-        return new Precedent(UUID.randomUUID(), SCORE, VECTOR, "flagged", outcomes);
+        return new Precedent(UUID.randomUUID(), SCORE, VECTOR, "flagged", outcomes, null);
     }
 
     private Precedent precedent(double similarity, Map<String, CapabilityOutcome> outcomes) {
         return new Precedent(UUID.randomUUID(), new SimilarityScore(similarity, Map.of()),
-                             VECTOR, "flagged", outcomes);
+                             VECTOR, "flagged", outcomes, null);
     }
 
 

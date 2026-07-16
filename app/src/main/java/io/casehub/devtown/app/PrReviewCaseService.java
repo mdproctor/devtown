@@ -4,6 +4,7 @@ import io.casehub.devtown.app.mcp.PrReviewCaseTracker;
 import io.casehub.devtown.domain.CiStatusClient;
 import io.casehub.devtown.domain.CombinedCiStatus;
 import io.casehub.devtown.domain.cbr.PrFeatureVector;
+import io.casehub.devtown.domain.sla.SlaEstimator;
 import io.casehub.devtown.domain.preferences.PrReviewPreferenceKeys;
 import io.casehub.devtown.domain.queue.MergeQueuePreferenceKeys;
 import io.casehub.devtown.review.LifecycleResult;
@@ -93,6 +94,8 @@ public class PrReviewCaseService implements PrReviewApplicationService {
         initialContext.put("pr", prContext);
         initialContext.put("policy", policy);
         initialContext.put("memory", memoryContext.toContextMap());
+        SlaEstimator.estimate(memoryContext.precedents()).ifPresent(estimate ->
+            initialContext.put("slaEstimate", estimate.toContextMap()));
         if ("external".equals(ciMode)) {
             initialContext.put("ci", Map.of("status", "pending"));
         }
@@ -127,6 +130,7 @@ public class PrReviewCaseService implements PrReviewApplicationService {
         caseHub.signal(caseId, "styleCheck", null);
         caseHub.signal(caseId, "testCoverage", null);
         caseHub.signal(caseId, "performanceAnalysis", null);
+        caseHub.signal(caseId, "slaEstimate", null);
 
         if ("external".equals(ciMode)) {
             caseHub.signal(caseId, "ci", Map.of("status", "pending"));

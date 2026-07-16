@@ -91,30 +91,39 @@ public class DefaultCbrRetrievalService implements CbrRetrievalService {
         try {
             PrFeatureVector stored = PrFeatureVector.fromAttributes(memory.attributes());
             UUID            caseId = UUID.fromString(memory.caseId());
-            return new CandidateVector(caseId, stored, stored.contributor());
+            return new CandidateVector(caseId, stored, stored.contributor(), memory.createdAt());
         } catch (Exception e) {
             LOG.debugf(e, "Failed to parse candidate memory=%s", memory.memoryId());
             return null;
-        }
-    }
+        }}
 
     private Precedent scoreCandidate(CandidateVector cv, PrFeatureVector query,
                                      SimilarityMetric metric, String tenantId) {
         try {
             SimilarityScore score = metric.compute(query, cv.vector);
 
-            Map<String, CapabilityOutcome> capabilityOutcomes = enrichOutcomes(cv.caseId, cv.contributor, tenantId);
-            if (capabilityOutcomes.isEmpty()) {return null;}
+            EnrichmentResult enrichment = enrichOutcomes(cv.caseId, cv.contributor, tenantId);
+            if (enrichment.outcomes().isEmpty()) {return null;}
 
-            String aggregate = aggregateOutcome(capabilityOutcomes);
-            return new Precedent(cv.caseId, score, cv.vector, aggregate, capabilityOutcomes);
+            Duration completionTime = null;
+            if (enrichment.latestOutcomeTime() != null && cv.startedAt() != null) {
+                Duration raw = Duration.between(cv.startedAt(), enrichment.latestOutcomeTime());
+                if (raw.isNegative()) {
+                    LOG.warnf("Negative completion time for case=%s: start=%s outcome=%s — possible clock skew or async race",
+                              cv.caseId(), cv.startedAt(), enrichment.latestOutcomeTime());
+                } else {
+                    completionTime = raw;
+                }
+            }
+
+            String aggregate = aggregateOutcome(enrichment.outcomes());
+            return new Precedent(cv.caseId, score, cv.vector, aggregate, enrichment.outcomes(), completionTime);
         } catch (Exception e) {
             LOG.debugf(e, "Failed to score candidate case=%s", cv.caseId);
             return null;
-        }
-    }
+        }}
 
-    private Map<String, CapabilityOutcome> enrichOutcomes(UUID caseId, String contributor, String tenantId) {
+    private EnrichmentResult enrichOutcomes(UUID caseId, String contributor, String tenantId) {
         try {
             List<Memory> outcomeFacts = store.query(
                     MemoryQuery.forEntity(
@@ -133,10 +142,16 @@ public class DefaultCbrRetrievalService implements CbrRetrievalService {
                     outcomes.put(capability, new CapabilityOutcome(outcome, detail));
                 }
             }
-            return outcomes;
+
+            Instant latestOutcome = outcomeFacts.stream()
+                                                .map(Memory::createdAt)
+                                                .max(Instant::compareTo)
+                                                .orElse(null);
+
+            return new EnrichmentResult(outcomes, latestOutcome);
         } catch (Exception e) {
             LOG.debugf(e, "Failed to enrich outcomes for case=%s", caseId);
-            return Map.of();
+            return new EnrichmentResult(Map.of(), null);
         }
     }
 
@@ -172,5 +187,8 @@ public class DefaultCbrRetrievalService implements CbrRetrievalService {
         );
     }
 
-    private record CandidateVector(UUID caseId, PrFeatureVector vector, String contributor) {}
+
+    private record EnrichmentResult(Map<String, CapabilityOutcome> outcomes, Instant latestOutcomeTime) {}
+
+    private record CandidateVector(UUID caseId, PrFeatureVector vector, String contributor, Instant startedAt) {}
 }

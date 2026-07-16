@@ -25,7 +25,7 @@ class CbrBatchRiskAssessorTest {
 
     private Precedent precedent(String outcome) {
         var vector = PrFeatureVector.from("casehubio/devtown", 1, "alice", 50, List.of("src/Main.java"));
-        return new Precedent(UUID.randomUUID(), new SimilarityScore(0.85, Map.of()), vector, outcome, Map.of());
+        return new Precedent(UUID.randomUUID(), new SimilarityScore(0.85, Map.of()), vector, outcome, Map.of(), null);
     }
 
     @Test
