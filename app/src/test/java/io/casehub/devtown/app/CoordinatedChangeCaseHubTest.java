@@ -22,11 +22,12 @@ class CoordinatedChangeCaseHubTest {
     }
 
     @Test
-    void hasTwoBindings() {
+    void hasThreeBindings() {
         var def = caseHub.getDefinition();
-        assertThat(def.getBindings()).hasSize(2);
+        assertThat(def.getBindings()).hasSize(3);
         var names = def.getBindings().stream().map(Binding::getName).toList();
-        assertThat(names).containsExactlyInAnyOrder("merge-all-repos", "rollback-on-merge-failure");
+        assertThat(names).containsExactlyInAnyOrder(
+                "merge-all-repos", "rollback-on-merge-failure", "rollback-human-escalation");
     }
 
     @Test
@@ -50,4 +51,12 @@ class CoordinatedChangeCaseHubTest {
         assertThat(def.getWorkers()).anySatisfy(w ->
             assertThat(w.capabilityNames()).contains("coordinated-merge"));
     }
+
+    @Test
+    void hasCoordinatedRollbackWorker() {
+        var def = caseHub.getDefinition();
+        assertThat(def.getWorkers()).anySatisfy(w ->
+                                                        assertThat(w.capabilityNames()).contains("coordinated-rollback"));
+    }
+
 }

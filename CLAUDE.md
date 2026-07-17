@@ -213,11 +213,11 @@ Read these **before designing**, not after. The concern column tells you when ea
 | Class | Constants | What they represent |
 |-------|-----------|---------------------|
 | `ReviewDomain` | `code-analysis`, `security-review`, `architecture-review`, `style-review`, `test-coverage`, `performance-analysis` | Analytical work a PR needs; what an AI agent is qualified to perform |
-| `AgentQualification` | `ci-runner`, `merge-executor` | Execution capabilities with trust scoring |
+| `AgentQualification` | `ci-runner`, `merge-executor`, `coordinated-merge`, `coordinated-rollback` | Execution capabilities with trust scoring |
 | `HumanDecision` | `human-decision:pr-approval` | Formal accountability events requiring human judgment (casehub-work WorkItem lifecycle) |
-| `HumanOversight` | `human-oversight:routing-review` | System-level review when automated routing confidence is low (borderline trust, fleet gap, insufficient observations) |
+| `HumanOversight` | `human-oversight:routing-review`, `human-oversight:general` | System-level review — routing-review for low routing confidence, general for infrastructure failures (e.g. rollback conflicts) |
 
-`NOTIFY` removed — connector call, not a trust-scored capability. `BATCH_BISECT`, `COORDINATED_MERGE`, `COORDINATED_ROLLBACK` deferred to CasePlanModel definitions (Epics 4/5, devtown#20).
+`NOTIFY` removed — connector call, not a trust-scored capability. `BATCH_BISECT` deferred to CasePlanModel definitions (devtown#20). `COORDINATED_MERGE` and `COORDINATED_ROLLBACK` added in Epic 5 (#156, #158).
 
 **Trust dimensions** — how trust is scoped for this domain (Epic 2 ✅):
 

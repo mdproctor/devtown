@@ -63,3 +63,17 @@ spec:
       outcomePolicy:
         onDecline: FAULT
         onFailure: FAULT
+
+    - name: rollback-human-escalation
+      on: { contextChange: {} }
+      when: >-
+        .rollbackResults != null and
+        (.rollbackResults | any(.status != "success")) and
+        .rollbackEscalation == null
+      conflictResolverStrategy: DEEP_MERGE
+      humanTask:
+        title: "Coordinated rollback failed — manual revert required"
+        candidateGroups: [human-oversight:general]
+        expiresIn: PT4H
+        outputMapping: "{ rollbackEscalation: . }"
+        outcomes: [RESOLVED, ABANDONED]
