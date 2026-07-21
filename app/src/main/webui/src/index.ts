@@ -8,6 +8,7 @@ import { queueView } from "./views/queue";
 import { reviewersView } from "./views/reviewers";
 import { triageView } from "./views/triage";
 import { systemView } from "./views/system";
+import { definitionsView } from "./views/definitions";
 
 const app = page("DevTown",
   tabs(
@@ -17,6 +18,7 @@ const app = page("DevTown",
     ["Reviewers", reviewersView],
     ["Triage", triageView],
     ["System", systemView],
+    ["Definitions", definitionsView],
   ),
   { settings: { mode: "dark" } },
 );

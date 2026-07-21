@@ -68,6 +68,13 @@
         <version>${project.version}</version>
       </dependency>
 
+      <!-- engine REST endpoints (plan-items, goals, case definitions) -->
+      <dependency>
+        <groupId>io.casehub</groupId>
+        <artifactId>casehub-engine-rest</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
       <!-- casehub-neocortex memory API (MemoryDomain used in devtown-domain) -->
       <dependency>
         <groupId>io.casehub</groupId>

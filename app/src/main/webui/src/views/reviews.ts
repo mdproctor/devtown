@@ -68,6 +68,36 @@ const reviewDetail = rows(
     )],
   ),
 
+  // Plan Items
+  title("Plan Items", 3),
+  table({
+    lookup: lookup("plan-items", groupBy("planItemId",
+      col("bindingName"), col("targetType"),
+      col("status"), col("executorName"), col("createdAt")
+    )),
+    sortable: true,
+  }),
+
+  // Case Context
+  title("Case Context", 3),
+  table({
+    lookup: lookup("case-context", groupBy("key", col("key"), col("value"))),
+  }),
+
+  // Goal Progress
+  title("Goal Progress", 3),
+  columns([70, 30],
+    [table({
+      lookup: lookup("goal-status", groupBy("name",
+        col("name"), col("kind"), col("satisfied")
+      )),
+    })],
+    [rows(
+      metric({ title: "Success Completion", lookup: lookup("goal-status", groupBy(null, col("completion.byKind.success.satisfied"))), subtype: "plain-text" }),
+      metric({ title: "Failure Triggered", lookup: lookup("goal-status", groupBy(null, col("completion.byKind.failure.satisfied"))), subtype: "plain-text" }),
+    )],
+  ),
+
   // Compliance + Provenance
   title("Compliance & Provenance", 3),
   columns([30, 70],
