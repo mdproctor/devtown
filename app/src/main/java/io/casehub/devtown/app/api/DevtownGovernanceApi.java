@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-@McpDomain(value = "devtown/governance", basePath = "/api/devtown/governance")
+@McpDomain(value = "devtown/governance", app = "devtown", basePath = "/api/devtown/governance")
 @ApplicationScoped
 public class DevtownGovernanceApi {
 

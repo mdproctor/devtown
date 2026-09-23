@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-@McpDomain("devtown")
+@McpDomain(value = "devtown", app = "devtown")
 @GraphQLApi
 @ApplicationScoped
 public class GovernanceMutationResolver {

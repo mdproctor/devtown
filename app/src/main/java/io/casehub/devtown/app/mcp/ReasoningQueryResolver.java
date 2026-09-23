@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
-@McpDomain("devtown")
+@McpDomain(value = "devtown", app = "devtown")
 @GraphQLApi
 @ApplicationScoped
 public class ReasoningQueryResolver {

@@ -10,7 +10,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-@McpDomain("devtown/incident-feedback")
+@McpDomain(value = "devtown/incident-feedback", app = "devtown")
 @ApplicationScoped
 @RolesAllowed(DevtownRoles.ADMIN)
 public class DevtownIncidentFeedbackApi {

@@ -21,7 +21,7 @@ import jakarta.ws.rs.WebApplicationException;
 import java.util.Optional;
 import java.util.UUID;
 
-@McpDomain(value = "devtown/compliance", basePath = "/api/devtown/compliance")
+@McpDomain(value = "devtown/compliance", app = "devtown", basePath = "/api/devtown/compliance")
 @ApplicationScoped
 public class DevtownComplianceApi {
 
