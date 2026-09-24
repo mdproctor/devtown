@@ -23,7 +23,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@McpDomain(value = "devtown", app = "devtown")
+@McpDomain(value = "devtown/model", app = "devtown")
 @GraphQLApi
 @ApplicationScoped
 public class MemoryQueryResolver {
