@@ -20,7 +20,7 @@ import jakarta.ws.rs.QueryParam;
 
 import java.util.UUID;
 
-@McpDomain(value = "devtown/reviews", app = "devtown", basePath = "/api/devtown/reviews")
+@McpDomain(value = "devtown/reviews", app = "devtown", basePath = "/api/devtown/reviews", summary = "Reviews — get, list, record operations")
 @ApplicationScoped
 public class DevtownReviewApi {
 

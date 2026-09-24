@@ -13,7 +13,7 @@ import jakarta.ws.rs.QueryParam;
 import java.util.List;
 import java.util.UUID;
 
-@McpDomain(value = "devtown/trust", app = "devtown", basePath = "/api/devtown/trust")
+@McpDomain(value = "devtown/trust", app = "devtown", basePath = "/api/devtown/trust", summary = "Developer trust scores for review assignment")
 @ApplicationScoped
 public class DevtownTrustApi {
 

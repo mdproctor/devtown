@@ -19,7 +19,7 @@ import org.jboss.logging.Logger;
 
 import java.util.Map;
 
-@McpDomain(value = "devtown/github-webhook", app = "devtown", basePath = "/api/github")
+@McpDomain(value = "devtown/github-webhook", app = "devtown", basePath = "/api/github", summary = "Receive GitHub webhook event")
 @ApplicationScoped
 public class GitHubWebhookResource {
 

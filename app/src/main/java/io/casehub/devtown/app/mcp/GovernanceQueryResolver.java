@@ -17,7 +17,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-@McpDomain(value = "devtown/model", app = "devtown")
+@McpDomain(value = "devtown/model", app = "devtown", summary = "DevTown domain model enrichment and state")
 @GraphQLApi
 @ApplicationScoped
 public class GovernanceQueryResolver {

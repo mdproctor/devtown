@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-@McpDomain(value = "devtown/model", app = "devtown")
+@McpDomain(value = "devtown/model", app = "devtown", summary = "DevTown domain model enrichment and state")
 @GraphQLApi
 @ApplicationScoped
 public class GovernanceMutationResolver {
