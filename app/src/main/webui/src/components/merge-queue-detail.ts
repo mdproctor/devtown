@@ -1,5 +1,12 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { renderTrustBar } from './shared/trust-bar.js';
+import { renderDimensionGrid } from './shared/dimension-grid.js';
+import { renderBadge } from './shared/badge.js';
+import { renderReviewCard } from './shared/review-card.js';
+import type { DimensionEntry } from './shared/types.js';
+import type { ReviewOutcome } from './shared/review-card.js';
+import { hostStyles, sectionTitleStyles, narrativeStyles, emptyStyles, trustBarStyles, dimensionGridStyles, badgeStyles, reviewCardStyles } from './shared/shared-styles.js';
 
 interface QueuedPrData {
   number: number;
@@ -48,83 +55,66 @@ export class MergeQueueDetail extends LitElement {
   @state() private _contributor: ContributorProfile | null = null;
   @state() private _actionResult = '';
   @state() private _prevAuthor = '';
+  @state() private _reviewOutcomes: ReviewOutcome[] = [];
 
-  static override styles = css`
-    :host { display: block; height: 100%; overflow-y: auto; padding: 16px; }
-    .header { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
-    .sub-header { font-size: 12px; color: var(--pages-neutral-7, #525252); margin-bottom: 16px; }
-    .meta { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin-bottom: 16px; font-size: 13px; }
-    .meta dt { font-weight: 600; color: var(--pages-neutral-8, #404040); }
-    .meta dd { margin: 0; }
-    .badge {
-      display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600;
-    }
-    .badge.fast-track { background: var(--pages-success-3, #dcfce7); color: var(--pages-success-9, #166534); }
-    .badge.standard { background: var(--pages-primary-3, #dbeafe); color: var(--pages-primary-9, #1d4ed8); }
-    .badge.enhanced { background: var(--pages-warning-3, #fef3c7); color: var(--pages-warning-9, #92400e); }
-    .badge.routine { background: var(--pages-neutral-3, #e5e5e5); color: var(--pages-neutral-9, #171717); }
-    .badge.elevated { background: var(--pages-warning-3, #fef3c7); color: var(--pages-warning-9, #92400e); }
-    .section-title { font-size: 13px; font-weight: 600; margin: 16px 0 6px; color: var(--pages-neutral-9, #404040); text-transform: uppercase; letter-spacing: 0.5px; }
-    .trust-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-    .trust-track { flex: 1; height: 8px; background: var(--pages-neutral-3, #e5e5e5); border-radius: 4px; overflow: hidden; position: relative; }
-    .trust-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
-    .trust-fill.high { background: var(--pages-success-9, #16a34a); }
-    .trust-fill.mid { background: var(--pages-primary-9, #1d4ed8); }
-    .trust-fill.low { background: var(--pages-warning-9, #d97706); }
-    .trust-fill.very-low { background: var(--pages-danger-9, #dc2626); }
-    .trust-threshold { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--pages-neutral-7, #525252); }
-    .trust-value { font-size: 13px; font-weight: 600; min-width: 40px; }
-    .trust-context { font-size: 11px; color: var(--pages-neutral-7, #525252); margin-top: 2px; }
-    .lane-reason { font-size: 12px; color: var(--pages-neutral-7, #525252); margin-top: 4px; font-style: italic; }
-    .dim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
-    .dim-item { font-size: 12px; display: flex; justify-content: space-between; padding: 4px 8px; background: var(--pages-neutral-2, #f5f5f5); border-radius: 3px; }
-    .dim-label { color: var(--pages-neutral-8, #404040); }
-    .dim-val { font-weight: 600; }
-    .check-list { list-style: none; padding: 0; margin: 6px 0 0 0; }
-    .check-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
-    .check-icon { width: 16px; text-align: center; font-size: 14px; }
-    .check-name { flex: 1; }
-    .check-status { font-size: 11px; font-weight: 600; }
-    .outcome-row { display: flex; gap: 8px; align-items: center; padding: 3px 0; font-size: 12px; }
-    .outcome-icon { width: 16px; text-align: center; }
-    .dep-list { list-style: none; padding: 0; margin: 0; }
-    .dep-list li { padding: 3px 0; font-size: 13px; color: var(--pages-neutral-8, #404040); }
-    .actions { display: flex; gap: 8px; margin: 16px 0; }
-    .actions button {
-      padding: 6px 14px; border-radius: 4px; font-size: 13px; font-weight: 500;
-      cursor: pointer; border: 1px solid var(--pages-neutral-5, #a3a3a3);
-      background: white; color: var(--pages-neutral-9, #171717);
-    }
-    .actions button:hover { background: var(--pages-neutral-2, #f5f5f5); }
-    .actions button.primary {
-      background: var(--pages-primary-9, #1d4ed8); color: white; border-color: var(--pages-primary-9, #1d4ed8);
-    }
-    .actions button.primary:hover { background: var(--pages-primary-10, #1e40af); }
-    .actions button.danger {
-      background: var(--pages-danger-9, #dc2626); color: white; border-color: var(--pages-danger-9, #dc2626);
-    }
-    .actions button.danger:hover { background: var(--pages-danger-10, #b91c1c); }
-    .action-result { font-size: 12px; padding: 6px 10px; margin: 4px 0 8px; background: var(--pages-neutral-2, #f5f5f5); border-radius: 3px; }
-    .empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--pages-neutral-7, #525252); font-size: 13px; }
-    .narrative { font-size: 13px; line-height: 1.5; color: var(--pages-neutral-8, #404040); margin: 6px 0 12px; }
-    .threshold-legend { display: flex; gap: 12px; font-size: 11px; color: var(--pages-neutral-6, #737373); margin-top: 4px; margin-bottom: 8px; }
-    .outcome-list { display: flex; gap: 4px; margin-top: 6px; }
-    .outcome-chip {
-      width: 24px; height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 700;
-    }
-    .outcome-chip.merged { background: var(--pages-success-3, #dcfce7); color: var(--pages-success-9, #166534); }
-    .outcome-chip.closed { background: var(--pages-danger-3, #fee2e2); color: var(--pages-danger-9, #dc2626); }
-  `;
+  static override styles = [
+    hostStyles, sectionTitleStyles, narrativeStyles, emptyStyles,
+    trustBarStyles, dimensionGridStyles, badgeStyles, reviewCardStyles,
+    css`
+      .sub-header { font-size: 12px; color: var(--pages-neutral-7, #525252); margin-bottom: 16px; }
+      .meta { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin-bottom: 16px; font-size: 13px; }
+      .meta dt { font-weight: 600; color: var(--pages-neutral-8, #404040); }
+      .meta dd { margin: 0; }
+      .badge.routine { background: var(--pages-neutral-3, #e5e5e5); color: var(--pages-neutral-9, #171717); }
+      .badge.elevated { background: var(--pages-warning-3, #fef3c7); color: var(--pages-warning-9, #92400e); }
+      .trust-context { font-size: 11px; color: var(--pages-neutral-7, #525252); margin-top: 2px; }
+      .lane-reason { font-size: 12px; color: var(--pages-neutral-7, #525252); margin-top: 4px; font-style: italic; }
+      .check-list { list-style: none; padding: 0; margin: 6px 0 0 0; }
+      .check-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
+      .check-icon { width: 16px; text-align: center; font-size: 14px; }
+      .check-name { flex: 1; }
+      .check-status { font-size: 11px; font-weight: 600; }
+      .outcome-row { display: flex; gap: 8px; align-items: center; padding: 3px 0; font-size: 12px; }
+      .outcome-icon { width: 16px; text-align: center; }
+      .dep-list { list-style: none; padding: 0; margin: 0; }
+      .dep-list li { padding: 3px 0; font-size: 13px; color: var(--pages-neutral-8, #404040); }
+      .actions { display: flex; gap: 8px; margin: 16px 0; }
+      .actions button {
+        padding: 6px 14px; border-radius: 4px; font-size: 13px; font-weight: 500;
+        cursor: pointer; border: 1px solid var(--pages-neutral-5, #a3a3a3);
+        background: white; color: var(--pages-neutral-9, #171717);
+      }
+      .actions button:hover { background: var(--pages-neutral-2, #f5f5f5); }
+      .actions button.primary {
+        background: var(--pages-primary-9, #1d4ed8); color: white; border-color: var(--pages-primary-9, #1d4ed8);
+      }
+      .actions button.primary:hover { background: var(--pages-primary-10, #1e40af); }
+      .actions button.danger {
+        background: var(--pages-danger-9, #dc2626); color: white; border-color: var(--pages-danger-9, #dc2626);
+      }
+      .actions button.danger:hover { background: var(--pages-danger-10, #b91c1c); }
+      .action-result { font-size: 12px; padding: 6px 10px; margin: 4px 0 8px; background: var(--pages-neutral-2, #f5f5f5); border-radius: 3px; }
+      .outcome-list { display: flex; gap: 4px; margin-top: 6px; }
+      .outcome-chip {
+        width: 24px; height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 700;
+      }
+      .outcome-chip.merged { background: var(--pages-success-3, #dcfce7); color: var(--pages-success-9, #166534); }
+      .outcome-chip.closed { background: var(--pages-danger-3, #fee2e2); color: var(--pages-danger-9, #dc2626); }
+    `,
+  ];
 
   override willUpdate(changed: Map<PropertyKey, unknown>): void {
     if (changed.has('queuedPr')) {
       if (this.queuedPr && this.queuedPr.author !== this._prevAuthor) {
         this._prevAuthor = this.queuedPr.author;
         this._fetchContributor(this.queuedPr.author);
+        const review = this.reviews.find(r => r.caseId);
+        if (review) this._fetchReviewDetail(review.caseId);
       } else if (!this.queuedPr) {
         this._prevAuthor = '';
         this._contributor = null;
+        this._reviewOutcomes = [];
       }
     }
   }
@@ -135,6 +125,30 @@ export class MergeQueueDetail extends LitElement {
       const res = await fetch(`${this.endpoint}/contributors/${actorId}`);
       if (res.ok) this._contributor = await res.json();
     } catch { /* no contributor data available */ }
+  }
+
+  private async _fetchReviewDetail(caseId: string): Promise<void> {
+    this._reviewOutcomes = [];
+    try {
+      const base = this.endpoint.replace(/\/governance$/, '').replace(/\/reviews$/, '');
+      const res = await fetch(`${base}/reviews/${caseId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const capabilities: Array<{ name: string; status: string; outcome: string | null; completedAt: string | null }> = data.capabilities ?? [];
+      this._reviewOutcomes = capabilities
+        .filter(c => c.status === 'COMPLETED')
+        .map(c => ({
+          caseId,
+          capability: c.name,
+          outcome: c.outcome === 'APPROVED' ? 'DONE' : 'DECLINED',
+          timestamp: c.completedAt ?? new Date().toISOString(),
+          findingCount: ((data.findings?.[c.name] as Array<unknown>) ?? []).length,
+          findingSummary: ((data.findings?.[c.name] as Array<{ message: string }>) ?? []).map(f => f.message).join('; ') || null,
+          feedbackOutcome: null,
+        } satisfies ReviewOutcome));
+    } catch {
+      this._reviewOutcomes = [];
+    }
   }
 
   private async _doAction(action: string): Promise<void> {
@@ -157,29 +171,11 @@ export class MergeQueueDetail extends LitElement {
     }
   }
 
-  private _laneBadgeClass(lane: string): string {
-    const lower = lane.toLowerCase();
-    if (lower.includes('fast')) return 'fast-track';
-    if (lower.includes('enhanced')) return 'enhanced';
-    return 'standard';
-  }
-
-  private _trustFillClass(score: number): string {
-    if (score >= 0.80) return 'high';
-    if (score >= 0.60) return 'mid';
-    if (score >= 0.40) return 'low';
-    return 'very-low';
-  }
-
   private _checkIcon(status: string): string {
     if (status === 'COMPLETED') return '✅';
     if (status === 'FAILED' || status === 'DECLINED') return '❌';
     if (status === 'SCHEDULED' || status === 'IN_PROGRESS') return '⏳';
     return '⭕';
-  }
-
-  private _formatDimension(key: string): string {
-    return key.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   }
 
   override render() {
@@ -245,7 +241,6 @@ export class MergeQueueDetail extends LitElement {
   }
 
   private _renderPr(pr: QueuedPrData) {
-    const trustPct = Math.round(pr.trustScore * 100);
     const c = this._contributor;
     const review = this.reviews.find(r => r.caseId && r.status !== 'COMPLETED');
 
@@ -255,7 +250,7 @@ export class MergeQueueDetail extends LitElement {
 
       <div class="section-title">Lane Assignment</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <span class="badge ${this._laneBadgeClass(pr.priorityLane)}">${pr.priorityLane}</span>
+        ${renderBadge(pr.priorityLane, pr.priorityLane === 'FAST_TRACK' ? 'fast-track' : pr.priorityLane === 'ENHANCED_REVIEW' ? 'enhanced' : 'standard')}
       </div>
 
       ${c ? html`
@@ -263,38 +258,29 @@ export class MergeQueueDetail extends LitElement {
       ` : nothing}
 
       <div class="section-title">Trust Score</div>
-      <div class="trust-bar">
-        <div class="trust-track">
-          <div class="trust-fill ${this._trustFillClass(pr.trustScore)}" style="width:${trustPct}%"></div>
-          ${c?.intakeClassification ? html`
-            <div class="trust-threshold" style="left:${Math.round(c.intakeClassification.fastTrackThreshold * 100)}%" title="Fast-track threshold (${Math.round(c.intakeClassification.fastTrackThreshold * 100)}%)"></div>
-            <div class="trust-threshold" style="left:${Math.round(c.intakeClassification.standardThreshold * 100)}%" title="Standard threshold (${Math.round(c.intakeClassification.standardThreshold * 100)}%)"></div>
-          ` : nothing}
-        </div>
-        <div class="trust-value">${trustPct}%</div>
-      </div>
-      ${c?.intakeClassification ? html`
-        <div class="threshold-legend">
-          <span>▮ ${Math.round(c.intakeClassification.standardThreshold * 100)}% standard</span>
-          <span>▮ ${Math.round(c.intakeClassification.fastTrackThreshold * 100)}% fast-track</span>
-          <span>${c.intakeClassification.observationCount} observations</span>
-        </div>
-      ` : nothing}
+      ${renderTrustBar({
+        score: pr.trustScore,
+        thresholds: c?.intakeClassification ? [
+          { value: c.intakeClassification.standardThreshold, label: 'standard' },
+          { value: c.intakeClassification.fastTrackThreshold, label: 'fast-track' },
+        ] : undefined,
+        observationCount: c?.intakeClassification?.observationCount,
+      })}
 
       ${c?.dimensionScores && Object.keys(c.dimensionScores).length > 0 ? html`
-        <div class="dim-grid">
-          ${Object.entries(c.dimensionScores).map(([k, v]) => html`
-            <div class="dim-item">
-              <span class="dim-label">${this._formatDimension(k)}</span>
-              <span class="dim-val">${typeof v === 'number' ? Math.round(v * 100) + '%' : '—'}</span>
-            </div>
-          `)}
-        </div>
+        ${renderDimensionGrid(
+          Object.entries(c.dimensionScores).map(([key, value]): DimensionEntry => ({ key, value: value as number }))
+        )}
       ` : nothing}
 
       ${c?.recentOutcomes && c.recentOutcomes.length > 0 ? html`
         <div class="section-title">Recent Activity</div>
         <div class="narrative">${this._buildRecentPattern(c.recentOutcomes)}</div>
+      ` : nothing}
+
+      ${this._reviewOutcomes.length > 0 ? html`
+        <div class="section-title">Review Activity</div>
+        ${this._reviewOutcomes.map(o => renderReviewCard(o))}
       ` : nothing}
 
       ${review && review.capabilities.length > 0 ? html`
