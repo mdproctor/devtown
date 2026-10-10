@@ -1,5 +1,11 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { renderTrustBar } from './shared/trust-bar.js';
+import { renderDimensionGrid } from './shared/dimension-grid.js';
+import { renderStatusCard } from './shared/status-card.js';
+import { renderBadge } from './shared/badge.js';
+import type { DimensionEntry } from './shared/types.js';
+import { hostStyles, sectionTitleStyles, narrativeStyles, emptyStyles, trustBarStyles, dimensionGridStyles, statusCardStyles, badgeStyles } from './shared/shared-styles.js';
 
 interface ContributorProfile {
   actorId: string;
@@ -26,51 +32,20 @@ export class ContributorDetail extends LitElement {
   @state() private _loading = false;
   @state() private _prevActorId = '';
 
-  static override styles = css`
-    :host { display: block; height: 100%; overflow-y: auto; padding: 16px; }
-    .header { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
-    .empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--pages-neutral-7, #525252); font-size: 13px; }
-
-    .section-title { font-size: 13px; font-weight: 600; margin: 20px 0 6px; color: var(--pages-neutral-9, #404040); text-transform: uppercase; letter-spacing: 0.5px; }
-    .narrative { font-size: 13px; line-height: 1.6; color: var(--pages-neutral-8, #404040); margin: 6px 0 12px; }
-
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
-    .badge.fast-track { background: var(--pages-success-3, #dcfce7); color: var(--pages-success-9, #166534); }
-    .badge.standard { background: var(--pages-primary-3, #dbeafe); color: var(--pages-primary-9, #1d4ed8); }
-    .badge.enhanced { background: var(--pages-warning-3, #fef3c7); color: var(--pages-warning-9, #92400e); }
-
-    .trust-bar { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; }
-    .trust-track { flex: 1; height: 8px; background: var(--pages-neutral-3, #e5e5e5); border-radius: 4px; overflow: hidden; position: relative; }
-    .trust-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
-    .trust-fill.high { background: var(--pages-success-9, #16a34a); }
-    .trust-fill.mid { background: var(--pages-primary-9, #1d4ed8); }
-    .trust-fill.low { background: var(--pages-warning-9, #d97706); }
-    .trust-fill.very-low { background: var(--pages-danger-9, #dc2626); }
-    .trust-threshold { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--pages-neutral-7, #525252); }
-    .trust-value { font-size: 13px; font-weight: 600; min-width: 40px; }
-    .threshold-legend { display: flex; gap: 12px; font-size: 11px; color: var(--pages-neutral-6, #737373); margin-top: 4px; }
-
-    .proximity-card {
-      margin: 10px 0; padding: 10px 14px; border-radius: 6px; font-size: 13px; line-height: 1.5;
-      border-left: 3px solid;
-    }
-    .proximity-card.stable { background: var(--pages-success-2, #f0fdf4); border-color: var(--pages-success-9, #16a34a); }
-    .proximity-card.watch { background: var(--pages-warning-2, #fffbeb); border-color: var(--pages-warning-9, #d97706); }
-    .proximity-card.risk { background: var(--pages-danger-2, #fef2f2); border-color: var(--pages-danger-9, #dc2626); }
-
-    .dim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
-    .dim-item { font-size: 12px; display: flex; justify-content: space-between; padding: 4px 8px; background: var(--pages-neutral-2, #f5f5f5); border-radius: 3px; }
-    .dim-label { color: var(--pages-neutral-8, #404040); }
-    .dim-val { font-weight: 600; }
-
-    .outcome-list { margin-top: 6px; }
-    .outcome-item { display: flex; gap: 12px; align-items: baseline; padding: 4px 0; font-size: 12px; border-bottom: 1px solid var(--pages-neutral-2, #f5f5f5); }
-    .outcome-item:last-child { border-bottom: none; }
-    .outcome-result { font-weight: 600; min-width: 60px; }
-    .outcome-result.merged { color: var(--pages-success-9, #166534); }
-    .outcome-result.closed { color: var(--pages-danger-9, #dc2626); }
-    .outcome-date { color: var(--pages-neutral-6, #737373); }
-  `;
+  static override styles = [
+    hostStyles, sectionTitleStyles, narrativeStyles, emptyStyles,
+    trustBarStyles, dimensionGridStyles, statusCardStyles, badgeStyles,
+    css`
+      .sub-header { font-size: 13px; color: var(--pages-neutral-7, #525252); margin-bottom: 16px; }
+      .outcome-list { margin-top: 6px; }
+      .outcome-item { display: flex; gap: 12px; align-items: baseline; padding: 4px 0; font-size: 12px; border-bottom: 1px solid var(--pages-neutral-2, #f5f5f5); }
+      .outcome-item:last-child { border-bottom: none; }
+      .outcome-result { font-weight: 600; min-width: 60px; }
+      .outcome-result.merged { color: var(--pages-success-9, #166534); }
+      .outcome-result.closed { color: var(--pages-danger-9, #dc2626); }
+      .outcome-date { color: var(--pages-neutral-6, #737373); }
+    `,
+  ];
 
   override willUpdate(changed: Map<PropertyKey, unknown>): void {
     if (changed.has('actorId') && this.actorId && this.actorId !== this._prevActorId) {
@@ -87,20 +62,6 @@ export class ContributorDetail extends LitElement {
       if (res.ok) this._data = await res.json();
     } catch { /* unavailable */ }
     this._loading = false;
-  }
-
-  private _trustFillClass(score: number): string {
-    if (score >= 0.80) return 'high';
-    if (score >= 0.60) return 'mid';
-    if (score >= 0.40) return 'low';
-    return 'very-low';
-  }
-
-  private _laneBadgeClass(lane: string): string {
-    const l = lane.toLowerCase();
-    if (l.includes('fast')) return 'fast-track';
-    if (l.includes('enhanced')) return 'enhanced';
-    return 'standard';
   }
 
   private _buildSummary(d: ContributorProfile): string {
@@ -187,41 +148,33 @@ export class ContributorDetail extends LitElement {
 
     const d = this._data;
     const ic = d.intakeClassification;
-    const trustPct = Math.round(ic.trustScore * 100);
     const proximity = this._buildProximity(d);
 
     return html`
-      <div class="header">${d.actorId} <span class="badge ${this._laneBadgeClass(ic.lane)}">${ic.lane}</span></div>
+      <div class="header">${d.actorId} ${renderBadge(ic.lane, ic.lane === 'FAST_TRACK' ? 'fast-track' : ic.lane === 'ENHANCED_REVIEW' ? 'enhanced' : 'standard')}</div>
 
       <div class="narrative">${this._buildSummary(d)}</div>
 
       <div class="section-title">Lane Position</div>
-      <div class="trust-bar">
-        <div class="trust-track">
-          <div class="trust-fill ${this._trustFillClass(ic.trustScore)}" style="width:${trustPct}%"></div>
-          <div class="trust-threshold" style="left:${Math.round(ic.fastTrackThreshold * 100)}%" title="Fast-track (${Math.round(ic.fastTrackThreshold * 100)}%)"></div>
-          <div class="trust-threshold" style="left:${Math.round(ic.standardThreshold * 100)}%" title="Standard (${Math.round(ic.standardThreshold * 100)}%)"></div>
-        </div>
-        <div class="trust-value">${trustPct}%</div>
-      </div>
-      <div class="threshold-legend">
-        <span>▮ ${Math.round(ic.standardThreshold * 100)}% standard</span>
-        <span>▮ ${Math.round(ic.fastTrackThreshold * 100)}% fast-track</span>
-        <span>${ic.observationCount} observations</span>
-      </div>
+      ${renderTrustBar({
+        score: ic.trustScore,
+        thresholds: [
+          { value: ic.standardThreshold, label: 'standard' },
+          { value: ic.fastTrackThreshold, label: 'fast-track' },
+        ],
+        observationCount: ic.observationCount,
+      })}
 
-      <div class="proximity-card ${proximity.level}">${proximity.text}</div>
+      ${renderStatusCard({
+        tier: proximity.level === 'stable' ? 'good' : proximity.level === 'watch' ? 'watch' : 'concern',
+        text: proximity.text,
+      })}
 
       ${Object.keys(d.dimensionScores).length > 0 ? html`
         <div class="section-title">Quality Dimensions</div>
-        <div class="dim-grid">
-          ${Object.entries(d.dimensionScores).map(([k, v]) => html`
-            <div class="dim-item">
-              <span class="dim-label">${k.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
-              <span class="dim-val">${typeof v === 'number' ? Math.round(v * 100) + '%' : '—'}</span>
-            </div>
-          `)}
-        </div>
+        ${renderDimensionGrid(
+          Object.entries(d.dimensionScores).map(([key, value]): DimensionEntry => ({ key, value: value as number }))
+        )}
       ` : nothing}
 
       ${d.recentOutcomes.length > 0 ? html`
