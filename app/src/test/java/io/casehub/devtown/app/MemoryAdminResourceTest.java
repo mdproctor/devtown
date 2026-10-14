@@ -1,10 +1,10 @@
 package io.casehub.devtown.app;
 
 import io.casehub.devtown.domain.memory.DevtownMemoryDomain;
-import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.neocortex.memory.CaseMemoryStore;
 import io.casehub.neocortex.memory.MemoryInput;
 import io.casehub.neocortex.memory.MemoryQuery;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.platform.testing.FixedCurrentPrincipal;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
@@ -39,65 +39,60 @@ class MemoryAdminResourceTest {
         String tenantId = principal.tenancyId();
 
         store.store(new MemoryInput(
-            "contributor:alice",
-            DevtownMemoryDomain.SOFTWARE_REVIEW,
-            tenantId,
-            UUID.randomUUID().toString(),
-            "Style review by alice",
-            Map.of(),
-            null, null, null, null
+                "contributor:alice",
+                DevtownMemoryDomain.SOFTWARE_REVIEW,
+                tenantId,
+                UUID.randomUUID().toString(),
+                "Style review by alice",
+                Map.of(),
+                null, null, null, null
         ));
 
         assertThat(store.query(
-            MemoryQuery.forEntity("contributor:alice", DevtownMemoryDomain.SOFTWARE_REVIEW, tenantId)
-                .withLimit(5)
-        )).isNotEmpty();
+                MemoryQuery.forEntity("contributor:alice", DevtownMemoryDomain.SOFTWARE_REVIEW, tenantId)
+                           .withLimit(5)
+                              )).isNotEmpty();
 
         given()
-            .contentType("application/json")
-            .body("{\"login\": \"alice\"}")
-        .when()
-            .post("/api/devtown/compliance/memory/erase-contributor")
-        .then()
-            .statusCode(204);
+                .queryParam("login", "alice")
+                .when()
+                .post("/api/devtown/compliance/memory/erase-contributor")
+                .then()
+                .statusCode(204);
 
         assertThat(store.query(
-            MemoryQuery.forEntity("contributor:alice", DevtownMemoryDomain.SOFTWARE_REVIEW, tenantId)
-                .withLimit(5)
-        )).isEmpty();
+                MemoryQuery.forEntity("contributor:alice", DevtownMemoryDomain.SOFTWARE_REVIEW, tenantId)
+                           .withLimit(5)
+                              )).isEmpty();
     }
 
     @Test
     void eraseContributor_nullLogin_returns_400() {
         given()
-            .contentType("application/json")
-            .body("{}")
-        .when()
-            .post("/api/devtown/compliance/memory/erase-contributor")
-        .then()
-            .statusCode(400);
+                .when()
+                .post("/api/devtown/compliance/memory/erase-contributor")
+                .then()
+                .statusCode(400);
     }
 
     @Test
     void eraseContributor_blankLogin_returns_400() {
         given()
-            .contentType("application/json")
-            .body("{\"login\": \"  \"}")
-        .when()
-            .post("/api/devtown/compliance/memory/erase-contributor")
-        .then()
-            .statusCode(400);
+                .queryParam("login", "  ")
+                .when()
+                .post("/api/devtown/compliance/memory/erase-contributor")
+                .then()
+                .statusCode(400);
     }
 
     @Test
     void eraseContributor_nonExistent_returns_204() {
         given()
-            .contentType("application/json")
-            .body("{\"login\": \"nonexistent\"}")
-        .when()
-            .post("/api/devtown/compliance/memory/erase-contributor")
-        .then()
-            .statusCode(204);
+                .queryParam("login", "nonexistent")
+                .when()
+                .post("/api/devtown/compliance/memory/erase-contributor")
+                .then()
+                .statusCode(204);
     }
 
     @Test
@@ -105,32 +100,36 @@ class MemoryAdminResourceTest {
         String tenantId = principal.tenancyId();
 
         store.store(new MemoryInput(
-            "contributor:bob",
-            DevtownMemoryDomain.SOFTWARE_REVIEW,
-            tenantId,
-            UUID.randomUUID().toString(),
-            "Review by bob",
-            Map.of(),
-            null, null, null, null
+                "contributor:bob",
+                DevtownMemoryDomain.SOFTWARE_REVIEW,
+                tenantId,
+                UUID.randomUUID().toString(),
+                "Review by bob",
+                Map.of(),
+                null, null, null, null
         ));
 
         var logs = new ArrayList<LogRecord>();
         var handler = new Handler() {
-            @Override public void publish(LogRecord record) { logs.add(record); }
-            @Override public void flush() {}
-            @Override public void close() {}
+            @Override
+            public void publish(LogRecord record) {logs.add(record);}
+
+            @Override
+            public void flush()                   {}
+
+            @Override
+            public void close()                   {}
         };
 
-        var julLogger = java.util.logging.Logger.getLogger("io.casehub.devtown.app.MemoryAdminResource");
+        var julLogger = java.util.logging.Logger.getLogger("io.casehub.devtown.app.api.DevtownComplianceApi");
         julLogger.addHandler(handler);
         try {
             given()
-                .contentType("application/json")
-                .body("{\"login\": \"bob\"}")
-            .when()
-                .post("/api/devtown/compliance/memory/erase-contributor")
-            .then()
-                .statusCode(204);
+                    .queryParam("login", "bob")
+                    .when()
+                    .post("/api/devtown/compliance/memory/erase-contributor")
+                    .then()
+                    .statusCode(204);
 
             assertThat(logs).hasSizeGreaterThanOrEqualTo(2);
             assertThat(logs.get(0).getMessage()).contains("GDPR erasure requested");

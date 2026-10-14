@@ -42,10 +42,9 @@ class GdprErasureResourceTest {
         assertThat(token).isNotEqualTo(rawActorId);
 
         var response = given()
-            .contentType("application/json")
-            .body("{\"reason\": \"GDPR Art.17 request\"}")
+            .queryParam("reason", "GDPR Art.17 request")
             .when()
-                .post("/api/actors/" + rawActorId + "/erasure")
+                .post("/api/devtown/compliance/erasure/" + rawActorId)
             .then()
                 .statusCode(200)
                 .extract().body().jsonPath();
@@ -69,10 +68,9 @@ class GdprErasureResourceTest {
         seedHumanEntry(rawActorId, caseId, tenancyId);
 
         var response = given()
-            .contentType("application/json")
-            .body("{\"reason\": \"GDPR Art.17 test\"}")
+            .queryParam("reason", "GDPR Art.17 test")
             .when()
-                .post("/api/actors/" + rawActorId + "/erasure")
+                .post("/api/devtown/compliance/erasure/" + rawActorId)
             .then()
                 .statusCode(200)
                 .extract().body().jsonPath();
@@ -99,18 +97,16 @@ class GdprErasureResourceTest {
         seedHumanEntry(rawActorId, caseId, tenancyId);
 
         given()
-            .contentType("application/json")
-            .body("{\"reason\": \"first erasure\"}")
+            .queryParam("reason", "first erasure")
             .when()
-                .post("/api/actors/" + rawActorId + "/erasure")
+                .post("/api/devtown/compliance/erasure/" + rawActorId)
             .then()
                 .statusCode(200);
 
         var response = given()
-            .contentType("application/json")
-            .body("{\"reason\": \"second erasure\"}")
+            .queryParam("reason", "second erasure")
             .when()
-                .post("/api/actors/" + rawActorId + "/erasure")
+                .post("/api/devtown/compliance/erasure/" + rawActorId)
             .then()
                 .statusCode(200)
                 .extract().body().jsonPath();
@@ -123,10 +119,9 @@ class GdprErasureResourceTest {
         final String tenancyId = principal.tenancyId();
 
         var response = given()
-            .contentType("application/json")
-            .body("{\"reason\": \"GDPR Art.17 request\"}")
+            .queryParam("reason", "GDPR Art.17 request")
             .when()
-                .post("/api/actors/nonexistent-actor-" + UUID.randomUUID() + "/erasure")
+                .post("/api/devtown/compliance/erasure/nonexistent-actor-" + UUID.randomUUID())
             .then()
                 .statusCode(200)
                 .extract().body().jsonPath();

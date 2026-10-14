@@ -14,6 +14,7 @@ import io.casehub.platform.api.mcp.PathParam;
 import io.casehub.platform.api.mcp.PlatformMutation;
 import io.casehub.platform.api.mcp.PlatformQuery;
 import io.casehub.platform.api.mcp.RestPath;
+import org.jboss.logging.Logger;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -26,6 +27,8 @@ import java.util.UUID;
 @McpDomain(value = "devtown/compliance", app = "devtown", basePath = "/api/devtown/compliance", summary = "Development compliance — policy enforcement and audit")
 @ApplicationScoped
 public class DevtownComplianceApi {
+
+    private static final Logger LOG = Logger.getLogger(DevtownComplianceApi.class);
 
     @Inject CodeReviewComplianceService complianceService;
     @Inject GdprErasureService erasureService;
@@ -56,10 +59,12 @@ public class DevtownComplianceApi {
             throw new BadRequestException("login is required");
         }
         String entityId = DevtownMemoryDomain.CONTRIBUTOR_PREFIX + login;
+        LOG.infof("GDPR erasure requested for %s", entityId);
         try {
             memoryStore.eraseEntity(entityId, principal.tenancyId());
         } catch (MemoryCapabilityException e) {
             throw new WebApplicationException("eraseEntity not supported by the active CaseMemoryStore adapter", 501);
         }
+        LOG.infof("GDPR erasure completed for %s", entityId);
     }
 }
