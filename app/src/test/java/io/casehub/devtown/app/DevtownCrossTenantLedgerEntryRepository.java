@@ -63,8 +63,8 @@ class DevtownCrossTenantLedgerEntryRepository implements CrossTenantLedgerEntryR
             return Collections.emptyMap();
         }
         return blocking.allAttestations().stream()
-                .filter(a -> entryIds.contains(a.ledgerEntryId))
-                .collect(Collectors.groupingBy(a -> a.ledgerEntryId));
+                       .filter(a -> entryIds.contains(a.ledgerEntryId))
+                       .collect(Collectors.groupingBy(a -> a.ledgerEntryId));
     }
 
     @Override

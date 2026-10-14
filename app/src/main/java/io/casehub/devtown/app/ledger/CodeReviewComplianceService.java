@@ -75,6 +75,8 @@ public class CodeReviewComplianceService {
                 .setParameter("tenancyId", tenancyId)
                 .getResultList();
         entries.addAll(mergeDecisions);
+        var seen = new java.util.HashSet<java.util.UUID>();
+        entries.removeIf(e -> !seen.add(e.id));
         if (entries.isEmpty()) {
             return Optional.empty();
         }
