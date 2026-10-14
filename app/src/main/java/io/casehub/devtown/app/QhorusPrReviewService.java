@@ -2,12 +2,12 @@ package io.casehub.devtown.app;
 
 import io.casehub.devtown.domain.ReviewFinding;
 import io.casehub.devtown.review.LifecycleResult;
+import io.casehub.devtown.review.PrDiff;
+import io.casehub.devtown.review.PrDiffCache;
 import io.casehub.devtown.review.PrPayload;
 import io.casehub.devtown.review.PrReviewApplicationService;
 import io.casehub.devtown.review.PrReviewOutcome;
 import io.casehub.devtown.review.ReviewContext;
-import io.casehub.devtown.review.PrDiff;
-import io.casehub.devtown.review.PrDiffCache;
 import io.casehub.devtown.review.ReviewerAgent;
 import io.casehub.devtown.review.ReviewerAgentRegistry;
 import io.casehub.devtown.review.ReviewerOutcome;
@@ -16,6 +16,7 @@ import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.channel.Channel;
 import io.casehub.qhorus.api.channel.ChannelCreateRequest;
 import io.casehub.qhorus.api.channel.ChannelSemantic;
+import io.casehub.qhorus.api.channel.EnforcementMode;
 import io.casehub.qhorus.api.message.MessageDispatch;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.runtime.channel.ChannelService;
@@ -194,20 +195,38 @@ public class QhorusPrReviewService implements PrReviewApplicationService {
         final String name = prefix + "/work";
         return channelService.findByName(name)
                              .map(ch -> requireContract(ch, WORK_ALLOWED_TYPES, ORCHESTRATOR))
-                             .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, List.of(ORCHESTRATOR), List.of(ORCHESTRATOR), null, null, null, WORK_ALLOWED_TYPES, null, null, null, null, null, null)));
+                             .orElseGet(() -> channelService.create(ChannelCreateRequest.builder(name)
+                                                                                        .semantic(ChannelSemantic.APPEND)
+                                                                                        .barrierContributors(List.of(ORCHESTRATOR))
+                                                                                        .allowedWriters(List.of(ORCHESTRATOR))
+                                                                                        .allowedTypes(WORK_ALLOWED_TYPES)
+                                                                                        .enforcementMode(EnforcementMode.ADVISORY)
+                                                                                        .build()));
     }
 
     private Channel findOrCreateObserveChannel(final String prefix) {
         final String name = prefix + "/observe";
         return channelService.findByName(name)
                              .map(ch -> requireContract(ch, OBSERVE_ALLOWED_TYPES, ORCHESTRATOR))
-                             .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, List.of(ORCHESTRATOR), List.of(ORCHESTRATOR), null, null, null, OBSERVE_ALLOWED_TYPES, null, null, null, null, null, null)));
+                             .orElseGet(() -> channelService.create(ChannelCreateRequest.builder(name)
+                                                                                        .semantic(ChannelSemantic.APPEND)
+                                                                                        .barrierContributors(List.of(ORCHESTRATOR))
+                                                                                        .allowedWriters(List.of(ORCHESTRATOR))
+                                                                                        .allowedTypes(OBSERVE_ALLOWED_TYPES)
+                                                                                        .enforcementMode(EnforcementMode.ADVISORY)
+                                                                                        .build()));
     }
 
     private Channel findOrCreateOversightChannel(final String prefix) {
         final String name = prefix + "/oversight";
         return channelService.findByName(name)
                              .map(ch -> requireContract(ch, OVERSIGHT_ALLOWED_TYPES, ORCHESTRATOR))
-                             .orElseGet(() -> channelService.create(new ChannelCreateRequest(name, null, ChannelSemantic.APPEND, List.of(ORCHESTRATOR), List.of(ORCHESTRATOR), null, null, null, OVERSIGHT_ALLOWED_TYPES, null, null, null, null, null, null)));
+                             .orElseGet(() -> channelService.create(ChannelCreateRequest.builder(name)
+                                                                                        .semantic(ChannelSemantic.APPEND)
+                                                                                        .barrierContributors(List.of(ORCHESTRATOR))
+                                                                                        .allowedWriters(List.of(ORCHESTRATOR))
+                                                                                        .allowedTypes(OVERSIGHT_ALLOWED_TYPES)
+                                                                                        .enforcementMode(EnforcementMode.ADVISORY)
+                                                                                        .build()));
     }
 }

@@ -37,6 +37,9 @@ class GdprErasureResourceTest {
 
         seedHumanEntry(rawActorId, caseId, tenancyId);
 
+        QuarkusTransaction.requiringNew().run(
+                () -> actorIdentityProvider.tokenise(rawActorId, ActorType.HUMAN));
+
         String token = QuarkusTransaction.requiringNew().call(
                 () -> actorIdentityProvider.tokeniseForQuery(rawActorId).orElse(rawActorId));
         assertThat(token).isNotEqualTo(rawActorId);

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.casehub.devtown.review.compliance.CodeReviewComplianceEvidence;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.model.CaseLedgerEntry;
+import io.casehub.ledger.api.spi.ActorIdentityProvider;
 import io.casehub.ledger.api.spi.LedgerEntryRepository;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.platform.api.identity.CurrentPrincipal;
@@ -29,6 +30,7 @@ class ComplianceErasureDetectionTest {
     @Inject CodeReviewComplianceService complianceService;
     @Inject LedgerEntryRepository ledgerRepo;
     @Inject GdprErasureService erasureService;
+    @Inject ActorIdentityProvider actorIdentityProvider;
     @Inject CurrentPrincipal principal;
 
     @Test
@@ -51,6 +53,9 @@ class ComplianceErasureDetectionTest {
             cle.occurredAt = Instant.now().truncatedTo(ChronoUnit.MILLIS);
             ledgerRepo.save(cle, tenancyId);
         });
+
+        QuarkusTransaction.requiringNew().run(
+                () -> actorIdentityProvider.tokenise(humanActorId, ActorType.HUMAN));
 
         erasureService.erase(humanActorId, tenancyId, "GDPR test");
 

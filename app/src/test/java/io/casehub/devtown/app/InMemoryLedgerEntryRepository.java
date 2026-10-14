@@ -3,9 +3,14 @@ package io.casehub.devtown.app;
 import io.casehub.ledger.api.model.LedgerAttestation;
 import io.casehub.ledger.api.model.LedgerEntry;
 import io.casehub.ledger.api.spi.LedgerEntryRepository;
+import io.casehub.ledger.jpa.LedgerPersistenceUnit;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -17,15 +22,23 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @ApplicationScoped
 class InMemoryLedgerEntryRepository implements LedgerEntryRepository {
 
-    private final List<LedgerEntry> entries = new CopyOnWriteArrayList<>();
+    private final List<LedgerEntry>       entries      = new CopyOnWriteArrayList<>();
     private final List<LedgerAttestation> attestations = new CopyOnWriteArrayList<>();
+
+    @Inject
+    @LedgerPersistenceUnit
+    EntityManager em;
 
     @Override
     public LedgerEntry save(LedgerEntry entry, String tenancyId) {
         if (entry.id == null) {
             entry.id = UUID.randomUUID();
         }
+        if (entry.tenancyId == null) {
+            entry.tenancyId = tenancyId;
+        }
         entries.add(entry);
+        tryPersistToJpa(entry);
         return entry;
     }
 
@@ -42,8 +55,8 @@ class InMemoryLedgerEntryRepository implements LedgerEntryRepository {
     @Override
     public Optional<LedgerEntry> findLatestBySubjectId(UUID subjectId, String tenancyId) {
         return entries.stream()
-                .filter(e -> subjectId.equals(e.subjectId))
-                .max(java.util.Comparator.comparing(e -> e.occurredAt));
+                      .filter(e -> subjectId.equals(e.subjectId))
+                      .max(java.util.Comparator.comparing(e -> e.occurredAt));
     }
 
     @Override
@@ -62,6 +75,7 @@ class InMemoryLedgerEntryRepository implements LedgerEntryRepository {
             attestation.id = UUID.randomUUID();
         }
         attestations.add(attestation);
+        tryPersistToJpa(attestation);
         return attestation;
     }
 
@@ -115,5 +129,21 @@ class InMemoryLedgerEntryRepository implements LedgerEntryRepository {
 
     List<LedgerAttestation> allAttestations() {
         return attestations;
+    }
+
+    private void tryPersistToJpa(Object entity) {
+        try {
+            QuarkusTransaction.requiringNew().run(() -> {
+                em.merge(entity);
+                em.flush();
+            });
+        } catch (Exception e) {
+            System.err.println("[InMemoryLedgerEntryRepository] JPA dual-write failed for " + entity.getClass().getSimpleName() + ": " + e.getMessage());
+            Throwable cause = e.getCause();
+            while (cause != null) {
+                System.err.println("  Caused by: " + cause.getClass().getSimpleName() + ": " + cause.getMessage());
+                cause = cause.getCause();
+            }
+        }
     }
 }
