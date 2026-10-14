@@ -1,25 +1,26 @@
 package io.casehub.devtown.app.ledger;
 
-import io.casehub.devtown.domain.ReviewerTrustDimension;
 import io.casehub.devtown.domain.FlaggedAgent;
 import io.casehub.devtown.domain.IncidentFeedback;
 import io.casehub.devtown.domain.IncidentFeedbackResult;
 import io.casehub.devtown.domain.ReviewDomain;
+import io.casehub.devtown.domain.ReviewerTrustDimension;
 import io.casehub.ledger.api.model.AttestationVerdict;
-import io.casehub.ledger.model.WorkerDecisionEntry;
-import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.ledger.api.model.LedgerAttestation;
 import io.casehub.ledger.api.model.LedgerEntry;
-import io.casehub.ledger.jpa.LedgerPersistenceUnit;
 import io.casehub.ledger.api.spi.LedgerEntryRepository;
+import io.casehub.ledger.model.WorkerDecisionEntry;
+import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.platform.api.identity.ActorType;
+import io.casehub.platform.api.identity.CurrentPrincipal;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
+
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -33,7 +34,7 @@ public class IncidentFeedbackService {
 
     @Inject LedgerEntryRepository ledgerRepo;
     @Inject LedgerConfig ledgerConfig;
-    @Inject @LedgerPersistenceUnit EntityManager em;
+    @Inject CurrentPrincipal principal;
 
     @Transactional
     public IncidentFeedbackResult recordFeedback(IncidentFeedback feedback) {
@@ -85,19 +86,23 @@ public class IncidentFeedbackService {
     }
 
     private MergeDecisionLedgerEntry resolveMergeDecision(IncidentFeedback feedback) {
-        List<MergeDecisionLedgerEntry> decisions = em
-                .createNamedQuery("MergeDecisionLedgerEntry.findApprovedByRepoAndPr", MergeDecisionLedgerEntry.class)
-                .setParameter("repo", feedback.repository())
-                .setParameter("prNumber", feedback.prNumber())
-                .getResultList();
+        List<MergeDecisionLedgerEntry> decisions = ledgerRepo
+                                                           .findByTimeRange(Instant.EPOCH, Instant.now(), principal.tenancyId())
+                                                           .stream()
+                                                           .filter(MergeDecisionLedgerEntry.class::isInstance)
+                                                           .map(MergeDecisionLedgerEntry.class::cast)
+                                                           .filter(m -> feedback.repository().equals(m.repository)
+                                                                        && feedback.prNumber() == m.prNumber
+                                                                        && "APPROVED".equals(m.decision))
+                                                           .toList();
 
         if (feedback.caseId() != null) {
             return decisions.stream()
-                    .filter(m -> feedback.caseId().equals(m.caseId))
-                    .findFirst()
-                    .orElseThrow(() -> new WebApplicationException(
-                            "No APPROVED merge decision for caseId " + feedback.caseId(),
-                            Response.Status.NOT_FOUND));
+                            .filter(m -> feedback.caseId().equals(m.caseId))
+                            .findFirst()
+                            .orElseThrow(() -> new WebApplicationException(
+                                    "No APPROVED merge decision for caseId " + feedback.caseId(),
+                                    Response.Status.NOT_FOUND));
         }
 
         if (decisions.isEmpty()) {

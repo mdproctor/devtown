@@ -50,7 +50,7 @@ class InMemoryLedgerEntryRepository implements LedgerEntryRepository {
 
     @Override
     public List<LedgerAttestation> findAttestationsByEntryId(UUID entryId, String tenancyId) {
-        return List.of();
+        return attestations.stream().filter(a -> entryId.equals(a.ledgerEntryId)).toList();
     }
 
     @Override
@@ -61,7 +61,10 @@ class InMemoryLedgerEntryRepository implements LedgerEntryRepository {
 
     @Override
     public List<LedgerEntry> findByActorId(String actorId, Instant from, Instant to, String tenancyId) {
-        return List.of();
+        return entries.stream()
+                      .filter(e -> actorId.equals(e.actorId))
+                      .filter(e -> e.occurredAt != null && !e.occurredAt.isBefore(from) && !e.occurredAt.isAfter(to))
+                      .toList();
     }
 
     @Override
@@ -76,16 +79,27 @@ class InMemoryLedgerEntryRepository implements LedgerEntryRepository {
 
     @Override
     public List<LedgerAttestation> findAttestationsByEntryIdAndCapabilityTag(UUID entryId, String tag, String tenancyId) {
-        return List.of();
+        return attestations.stream()
+                           .filter(a -> entryId.equals(a.ledgerEntryId) && tag.equals(a.capabilityTag))
+                           .toList();
     }
 
     @Override
     public List<LedgerAttestation> findAttestationsByEntryIdGlobal(UUID entryId, String tenancyId) {
-        return List.of();
+        return attestations.stream().filter(a -> entryId.equals(a.ledgerEntryId)).toList();
     }
 
     @Override
     public List<LedgerAttestation> findAttestationsByAttestorIdAndCapabilityTag(String attestorId, String tag, String tenancyId) {
-        return List.of();
+        return attestations.stream()
+                           .filter(a -> attestorId.equals(a.attestorId) && tag.equals(a.capabilityTag))
+                           .toList();
+    }
+
+    @Override
+    public List<LedgerEntry> findByTimeRange(Instant from, Instant to, String tenancyId) {
+        return entries.stream()
+                      .filter(e -> e.occurredAt != null && !e.occurredAt.isBefore(from) && !e.occurredAt.isAfter(to))
+                      .toList();
     }
 }
