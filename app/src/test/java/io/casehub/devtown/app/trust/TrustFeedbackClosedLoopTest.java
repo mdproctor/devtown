@@ -52,6 +52,24 @@ class TrustFeedbackClosedLoopTest {
     @Inject TrustScoreJob trustScoreJob;
 
 
+    @Inject
+    @io.casehub.ledger.jpa.LedgerPersistenceUnit
+    jakarta.persistence.EntityManager em;
+
+    @org.junit.jupiter.api.BeforeEach
+    void cleanDatabase() {
+        QuarkusTransaction.requiringNew().run(() -> {
+            em.createNativeQuery("SET REFERENTIAL_INTEGRITY FALSE").executeUpdate();
+            em.createNativeQuery("TRUNCATE TABLE ledger_attestation").executeUpdate();
+            em.createNativeQuery("TRUNCATE TABLE worker_decision_entry").executeUpdate();
+            em.createNativeQuery("TRUNCATE TABLE merge_decision_ledger_entry").executeUpdate();
+            em.createNativeQuery("TRUNCATE TABLE ledger_entry").executeUpdate();
+            em.createNativeQuery("TRUNCATE TABLE actor_trust_score").executeUpdate();
+            em.createNativeQuery("TRUNCATE TABLE trust_score_snapshot").executeUpdate();
+            em.createNativeQuery("SET REFERENTIAL_INTEGRITY TRUE").executeUpdate();
+        });
+    }
+
     @Test
     void closedLoop_soundBuildsTrust_incidentDegradesTrust_routingShifts() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
