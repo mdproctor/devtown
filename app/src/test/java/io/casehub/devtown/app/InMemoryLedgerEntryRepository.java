@@ -108,4 +108,12 @@ class InMemoryLedgerEntryRepository implements LedgerEntryRepository {
                       .filter(e -> e.occurredAt != null && !e.occurredAt.isBefore(from) && !e.occurredAt.isAfter(to))
                       .toList();
     }
+
+    List<LedgerEntry> allEntries() {
+        return entries;
+    }
+
+    List<LedgerAttestation> allAttestations() {
+        return attestations;
+    }
 }

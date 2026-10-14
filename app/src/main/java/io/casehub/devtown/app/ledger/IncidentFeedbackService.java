@@ -87,7 +87,7 @@ public class IncidentFeedbackService {
 
     private MergeDecisionLedgerEntry resolveMergeDecision(IncidentFeedback feedback) {
         List<MergeDecisionLedgerEntry> decisions = ledgerRepo
-                                                           .findByTimeRange(Instant.EPOCH, Instant.now(), principal.tenancyId())
+                                                           .findByTimeRange(Instant.EPOCH, Instant.MAX, principal.tenancyId())
                                                            .stream()
                                                            .filter(MergeDecisionLedgerEntry.class::isInstance)
                                                            .map(MergeDecisionLedgerEntry.class::cast)

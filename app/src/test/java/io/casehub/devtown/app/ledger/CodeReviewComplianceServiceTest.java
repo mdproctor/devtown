@@ -163,7 +163,7 @@ class CodeReviewComplianceServiceTest {
 
         given()
             .when()
-                .get("/api/compliance/code-review/" + caseId)
+                .get("/api/devtown/compliance/code-review/" + caseId)
             .then()
                 .statusCode(200)
                 .body("caseId", org.hamcrest.Matchers.equalTo(caseId.toString()));
@@ -175,7 +175,7 @@ class CodeReviewComplianceServiceTest {
 
         given()
             .when()
-                .get("/api/compliance/code-review/" + unknownCaseId)
+                .get("/api/devtown/compliance/code-review/" + unknownCaseId)
             .then()
                 .statusCode(404);
     }
