@@ -51,6 +51,7 @@ class TrustFeedbackClosedLoopTest {
     @Inject AgentRoutingStrategy routingStrategy;
     @Inject TrustScoreJob trustScoreJob;
 
+
     @Test
     void closedLoop_soundBuildsTrust_incidentDegradesTrust_routingShifts() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
