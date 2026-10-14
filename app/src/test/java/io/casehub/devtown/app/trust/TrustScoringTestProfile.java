@@ -46,7 +46,8 @@ public class TrustScoringTestProfile implements QuarkusTestProfile {
                           + "io.casehub.engine.runtime.engine.recovery.WorkerRecoveryCoordinator,"
                           + "io.casehub.engine.runtime.engine.recovery.WorkerRecoveryHealthCheck,"
                           + "io.casehub.work.runtime.preferences.WorkPreferenceRegistrar,"
-                          + "io.casehub.devtown.app.InMemoryLedgerEntryRepository"),
+                          + "io.casehub.devtown.app.InMemoryLedgerEntryRepository,"
+                          + "io.casehub.platform.testing.FixedCurrentPrincipal"),
                 Map.entry("quarkus.hibernate-orm.qhorus.schema-management.strategy", "update")
         );
     }
