@@ -22,6 +22,9 @@ class InMemoryLedgerEntryRepository implements LedgerEntryRepository {
 
     @Override
     public LedgerEntry save(LedgerEntry entry, String tenancyId) {
+        if (entry.id == null) {
+            entry.id = UUID.randomUUID();
+        }
         entries.add(entry);
         return entry;
     }
@@ -55,6 +58,9 @@ class InMemoryLedgerEntryRepository implements LedgerEntryRepository {
 
     @Override
     public LedgerAttestation saveAttestation(LedgerAttestation attestation, String tenancyId) {
+        if (attestation.id == null) {
+            attestation.id = UUID.randomUUID();
+        }
         attestations.add(attestation);
         return attestation;
     }

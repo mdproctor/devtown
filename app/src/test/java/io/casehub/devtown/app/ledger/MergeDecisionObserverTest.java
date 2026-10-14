@@ -1,26 +1,26 @@
 package io.casehub.devtown.app.ledger;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.api.spi.LedgerEntryRepository;
-import io.casehub.ledger.jpa.LedgerPersistenceUnit;
+// LedgerPersistenceUnit no longer needed — queries go through InMemoryLedgerEntryRepository
 import io.casehub.platform.api.identity.ActorType;
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
+// EntityManager removed — use ledgerRepo for consistent in-memory querying
+import org.junit.jupiter.api.Test;
+
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
-import org.junit.jupiter.api.Test;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @QuarkusTest
 @TestProfile(LedgerEnabledTestProfile.class)
@@ -28,7 +28,6 @@ class MergeDecisionObserverTest {
 
     @Inject Event<CaseLifecycleEvent> caseLifecycleEvents;
     @Inject LedgerEntryRepository ledgerRepo;
-    @Inject @LedgerPersistenceUnit EntityManager em;
     @Inject ObjectMapper objectMapper;
 
     @Test
@@ -119,13 +118,10 @@ class MergeDecisionObserverTest {
     }
 
     private List<MergeDecisionLedgerEntry> findMergeDecisions(UUID caseId) {
-        return QuarkusTransaction.requiringNew().call(() ->
-            em.createQuery(
-                    "SELECT m FROM MergeDecisionLedgerEntry m WHERE m.subjectId = :subjectId",
-                    MergeDecisionLedgerEntry.class)
-                .setParameter("subjectId", caseId)
-                .getResultList()
-        );
+        return ledgerRepo.findBySubjectId(caseId, "test-tenant").stream()
+                         .filter(MergeDecisionLedgerEntry.class::isInstance)
+                         .map(MergeDecisionLedgerEntry.class::cast)
+                         .toList();
     }
 
     private ObjectNode buildPrSnapshot(String repo, String prId, String headSha) {

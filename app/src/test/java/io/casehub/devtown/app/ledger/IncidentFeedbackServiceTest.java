@@ -330,7 +330,7 @@ class IncidentFeedbackServiceTest {
                 }
                 """)
         .when()
-            .post("/api/incident-feedback")
+            .post("/api/devtown/reviews/feedback")
         .then()
             .statusCode(200)
             .body("attestationsWritten", org.hamcrest.Matchers.equalTo(1))
@@ -353,7 +353,7 @@ class IncidentFeedbackServiceTest {
                 }
                 """)
         .when()
-            .post("/api/incident-feedback")
+            .post("/api/devtown/reviews/feedback")
         .then()
             .statusCode(404);
     }
@@ -373,7 +373,7 @@ class IncidentFeedbackServiceTest {
                 }
                 """)
         .when()
-            .post("/api/incident-feedback")
+            .post("/api/devtown/reviews/feedback")
         .then()
             .statusCode(400);
     }
