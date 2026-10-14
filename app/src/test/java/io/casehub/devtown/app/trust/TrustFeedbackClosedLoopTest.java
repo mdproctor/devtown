@@ -14,8 +14,8 @@ import io.casehub.devtown.domain.ReviewDomain;
 import io.casehub.ledger.api.model.AttestationVerdict;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.api.spi.LedgerEntryRepository;
-import io.casehub.ledger.model.WorkerDecisionEntry;
 import io.casehub.ledger.core.trust.TrustGateService;
+import io.casehub.ledger.model.WorkerDecisionEntry;
 import io.casehub.ledger.runtime.service.TrustScoreJob;
 import io.casehub.platform.api.identity.ActorType;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -25,7 +25,6 @@ import io.quarkus.test.security.TestSecurity;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
