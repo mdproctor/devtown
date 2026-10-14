@@ -3,6 +3,7 @@ package io.casehub.devtown.app;
 import io.casehub.ledger.api.model.LedgerAttestation;
 import io.casehub.ledger.api.model.LedgerEntry;
 import io.casehub.ledger.api.spi.LedgerEntryRepository;
+import io.casehub.ledger.api.spi.ActorIdentityProvider;
 import io.casehub.ledger.jpa.LedgerPersistenceUnit;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.annotation.Priority;
@@ -28,6 +29,9 @@ class InMemoryLedgerEntryRepository implements LedgerEntryRepository {
     @Inject
     @LedgerPersistenceUnit
     EntityManager em;
+
+    @Inject
+    ActorIdentityProvider actorIdentityProvider;
 
     @Override
     public LedgerEntry save(LedgerEntry entry, String tenancyId) {
@@ -132,17 +136,26 @@ class InMemoryLedgerEntryRepository implements LedgerEntryRepository {
     }
 
     private void tryPersistToJpa(Object entity) {
-        try {
-            QuarkusTransaction.requiringNew().run(() -> {
-                em.merge(entity);
-                em.flush();
-            });
-        } catch (Exception e) {
-            System.err.println("[InMemoryLedgerEntryRepository] JPA dual-write failed for " + entity.getClass().getSimpleName() + ": " + e.getMessage());
-            Throwable cause = e.getCause();
-            while (cause != null) {
-                System.err.println("  Caused by: " + cause.getClass().getSimpleName() + ": " + cause.getMessage());
-                cause = cause.getCause();
+        if (entity instanceof LedgerEntry le) {
+            if (le.digest == null) {le.digest = "in-memory-dual-write";}
+            String originalActorId = le.actorId;
+            le.actorId = actorIdentityProvider.tokenise(le.actorId, le.actorType);
+            try {
+                QuarkusTransaction.requiringNew().run(() -> {
+                    em.merge(le);
+                    em.flush();
+                });
+            } catch (Exception ignored) {
+            } finally {
+                le.actorId = originalActorId;
+            }
+        } else {
+            try {
+                QuarkusTransaction.requiringNew().run(() -> {
+                    em.merge(entity);
+                    em.flush();
+                });
+            } catch (Exception ignored) {
             }
         }
     }
