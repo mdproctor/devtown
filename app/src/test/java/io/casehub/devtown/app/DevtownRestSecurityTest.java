@@ -14,56 +14,51 @@ class DevtownRestSecurityTest {
 
     @Test
     void unauthenticated_adminEndpoints_return401() {
-        given().contentType("application/json")
-                .body("{\"login\":\"test\"}")
-                .when().post("/api/devtown/compliance/memory/erase-contributor")
-                .then().statusCode(401);
+        given().when().post("/api/devtown/compliance/memory/erase-contributor")
+               .then().statusCode(401);
 
         given().contentType("application/json")
-                .body("{}")
-                .when().post("/api/devtown/reviews/feedback")
-                .then().statusCode(401);
+               .body("{}")
+               .when().post("/api/devtown/reviews/feedback")
+               .then().statusCode(401);
+
+        given().when().post("/api/devtown/compliance/erasure/test-actor")
+               .then().statusCode(401);
 
         given().contentType("application/json")
-                .body("{\"reason\":\"test\"}")
-                .when().post("/api/devtown/compliance/erasure/test-actor")
-                .then().statusCode(401);
-
-        given().contentType("application/json")
-                .body("{\"repo\":\"test/repo\",\"prNumber\":1,\"headSha\":\"abc\",\"linesChanged\":10}")
-                .when().post("/api/devtown/reviews/submit")
-                .then().statusCode(401);
+               .body("{\"repo\":\"test/repo\",\"prNumber\":1,\"headSha\":\"abc\",\"linesChanged\":10,\"baseRef\":\"main\",\"contributor\":\"dev\",\"changedPaths\":[]}")
+               .when().post("/api/devtown/reviews/submit")
+               .then().statusCode(401);
 
         given().when().get("/api/devtown/compliance/code-review/00000000-0000-0000-0000-000000000001")
-                .then().statusCode(401);
+               .then().statusCode(401);
     }
 
     @Test
     @TestSecurity(user = "admin-user", roles = {DevtownRoles.ADMIN})
     void authenticated_admin_notBlockedByAuth() {
-        given().contentType("application/json")
-                .body("{\"login\":\"test\"}")
-                .when().post("/api/devtown/compliance/memory/erase-contributor")
-                .then().statusCode(204);
+        given().queryParam("login", "test")
+               .when().post("/api/devtown/compliance/memory/erase-contributor")
+               .then().statusCode(204);
 
         given().contentType("application/json")
-                .body("{\"repo\":\"test/repo\",\"prNumber\":1,\"headSha\":\"abc\",\"linesChanged\":10,\"baseRef\":\"main\",\"contributor\":\"dev\",\"changedPaths\":[]}")
-                .when().post("/api/devtown/reviews/submit")
-                .then().statusCode(200);
+               .body("{\"repo\":\"test/repo\",\"prNumber\":1,\"headSha\":\"abc\",\"linesChanged\":10,\"baseRef\":\"main\",\"contributor\":\"dev\",\"changedPaths\":[]}")
+               .when().post("/api/devtown/reviews/submit")
+               .then().statusCode(200);
 
         given().when().get("/api/devtown/compliance/code-review/00000000-0000-0000-0000-000000000001")
-                .then().statusCode(404);
+               .then().statusCode(404);
     }
 
     @Test
     void permitAll_webhook_reachesResourceCode() {
         given().contentType("application/json")
-                .header("X-GitHub-Event", "ping")
-                .header("X-Hub-Signature-256", "")
-                .body("{}")
-                .when().post("/api/github/webhook")
-                .then().statusCode(401)
-                .body("error", equalTo("invalid signature"));
+               .header("X-GitHub-Event", "ping")
+               .header("X-Hub-Signature-256", "")
+               .body("{}")
+               .when().post("/api/github/receive")
+               .then().statusCode(401)
+               .body("error", equalTo("invalid signature"));
     }
 
     @Test
@@ -92,8 +87,7 @@ class DevtownRestSecurityTest {
     @Test
     @TestSecurity(user = "engineer-user", roles = {DevtownRoles.ENGINEER})
     void engineer_cannotErase() {
-        given().contentType("application/json")
-               .body("{\"reason\":\"test\"}")
+        given().queryParam("reason", "test")
                .when().post("/api/devtown/compliance/erasure/test-actor")
                .then().statusCode(403);
     }
@@ -133,8 +127,7 @@ class DevtownRestSecurityTest {
     @Test
     @TestSecurity(user = "auditor-user", roles = {DevtownRoles.AUDITOR})
     void auditor_cannotErase() {
-        given().contentType("application/json")
-               .body("{\"reason\":\"test\"}")
+        given().queryParam("reason", "test")
                .when().post("/api/devtown/compliance/erasure/test-actor")
                .then().statusCode(403);
     }
@@ -142,10 +135,9 @@ class DevtownRestSecurityTest {
     @Test
     @TestSecurity(user = "dc-user", roles = {DevtownRoles.DATA_CONTROLLER})
     void dataController_canErase() {
-        int status = given().contentType("application/json")
-               .body("{\"reason\":\"gdpr-request\"}")
-               .when().post("/api/devtown/compliance/erasure/test-actor")
-               .then().extract().statusCode();
+        int status = given().queryParam("reason", "gdpr-request")
+                            .when().post("/api/devtown/compliance/erasure/test-actor")
+                            .then().extract().statusCode();
         assertThat(status).isNotIn(401, 403);
     }
 

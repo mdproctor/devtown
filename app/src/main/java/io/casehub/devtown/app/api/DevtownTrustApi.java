@@ -1,10 +1,12 @@
 package io.casehub.devtown.app.api;
 
 import io.casehub.devtown.app.governance.TrustQueryService;
+import io.casehub.devtown.domain.DevtownRoles;
 import io.casehub.platform.api.mcp.McpDomain;
 import io.casehub.platform.api.mcp.PathParam;
 import io.casehub.platform.api.mcp.PlatformQuery;
 import io.casehub.platform.api.mcp.RestPath;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.DefaultValue;
@@ -19,12 +21,14 @@ public class DevtownTrustApi {
 
     @Inject TrustQueryService trustQueryService;
 
+    @RolesAllowed({DevtownRoles.ADMIN, DevtownRoles.ENGINEER, DevtownRoles.AUDITOR, DevtownRoles.SERVICE})
     @PlatformQuery("Get trust score for an actor")
     @RestPath("/{actorId}")
     public TrustQueryService.TrustScoreResponse trustScore(@PathParam String actorId) {
         return trustQueryService.trustScore(actorId);
     }
 
+    @RolesAllowed({DevtownRoles.ADMIN, DevtownRoles.ENGINEER, DevtownRoles.AUDITOR, DevtownRoles.SERVICE})
     @PlatformQuery("Get trust trend for an actor")
     @RestPath("/{actorId}/trend")
     public List<TrustQueryService.TrustTrendPoint> trustTrend(
@@ -34,6 +38,7 @@ public class DevtownTrustApi {
         return trustQueryService.trustTrend(actorId, capability, limit);
     }
 
+    @RolesAllowed({DevtownRoles.ADMIN, DevtownRoles.ENGINEER, DevtownRoles.AUDITOR, DevtownRoles.SERVICE})
     @PlatformQuery("Get routing history for an actor")
     @RestPath("/{actorId}/routing-history")
     public List<TrustQueryService.RoutingDecisionSummary> routingHistory(
@@ -43,6 +48,7 @@ public class DevtownTrustApi {
         return trustQueryService.routingHistory(actorId, capability, limit);
     }
 
+    @RolesAllowed({DevtownRoles.ADMIN, DevtownRoles.ENGINEER, DevtownRoles.AUDITOR, DevtownRoles.SERVICE})
     @PlatformQuery("Get routing decision detail")
     @RestPath("/{actorId}/routing-history/{entryId}")
     public Object routingDetail(@PathParam String actorId, @PathParam UUID entryId) {
